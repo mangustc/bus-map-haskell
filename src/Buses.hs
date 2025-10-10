@@ -88,18 +88,20 @@ parseLines lines = mapMaybe readMaybe filteredLines
   where
     filteredLines = filter (\l -> not (null l || isPrefixOf "--" l)) lines
 
-_combineArcs :: Arc -> [Arc] -> [Arc]
-_combineArcs arc [] = [arc]
-_combineArcs arc (harc:arcs)
-  | harc.arcStopID == arc.arcStopID && harc.arcStopIDNext == arc.arcStopIDNext = Arc {arcStopID = arc.arcStopID, arcStopIDNext = arc.arcStopIDNext, arcRoutesIDs = harc.arcRoutesIDs ++ arc.arcRoutesIDs} : arcs
-  | otherwise = harc : _combineArcs arc arcs
 
 arcsFromRoutes :: [Route] -> [Arc]
-arcsFromRoutes routes = foldr _combineArcs []
+arcsFromRoutes routes = foldr combineArcs []
   (concatMap
     (\r -> zipWith (\ stopID1 stopID2 -> Arc {arcStopID = stopID1, arcStopIDNext = stopID2, arcRoutesIDs = [r.routeID]}) r.routePath (tail r.routePath))
     routes
   )
+  where
+    combineArcs :: Arc -> [Arc] -> [Arc]
+    combineArcs arc [] = [arc]
+    combineArcs arc (harc:arcs)
+      | harc.arcStopID == arc.arcStopID && harc.arcStopIDNext == arc.arcStopIDNext = Arc {arcStopID = arc.arcStopID, arcStopIDNext = arc.arcStopIDNext, arcRoutesIDs = harc.arcRoutesIDs ++ arc.arcRoutesIDs} : arcs
+      | otherwise = harc : combineArcs arc arcs
+
 
 main :: IO ()
 main = do
