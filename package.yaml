@@ -1,4 +1,4 @@
-name:                monomer-starter
+name:                bus-map-haskell
 version:             0.1.0.0
 #synopsis:
 #description:
@@ -13,9 +13,12 @@ extra-source-files:
 
 default-extensions:
 - OverloadedStrings
+- GADTs
+- OverloadedRecordDot
 
 dependencies:
   - base >= 4.7 && < 5
+  - array
   - data-default
   - lens
   - monomer
@@ -26,6 +29,9 @@ executables:
   app:
     source-dirs:      src
     main:             Main.hs
+    # other-modules:
+    # - Structures.hs
+    # - Dijkstra.hs
     ghc-options:
     - -fwarn-incomplete-patterns
     - -threaded

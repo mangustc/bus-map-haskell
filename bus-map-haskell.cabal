@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.37.0.
 --
 -- see: https://github.com/sol/hpack
 
-name:           monomer-starter
+name:           bus-map-haskell
 version:        0.1.0.0
 homepage:       https://github.com/githubuser/monomer-starter#readme
 author:         Author name here
@@ -19,14 +19,20 @@ extra-source-files:
 executable app
   main-is: Main.hs
   other-modules:
-      Paths_monomer_starter
+      Dijkstra
+      KPath
+      Structures
+      Paths_bus_map_haskell
   hs-source-dirs:
       src
   default-extensions:
       OverloadedStrings
+      GADTs
+      OverloadedRecordDot
   ghc-options: -fwarn-incomplete-patterns -threaded
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
     , data-default
     , lens
     , monomer
