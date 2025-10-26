@@ -6,7 +6,7 @@ module KPath
 ) where
 
 import Structures
-import Data.List (sortBy, foldl', nub)
+import Data.List (sortBy, foldl', nub, nubBy, sort, any)
 import Data.Ord (comparing, Down(..))
 
 
@@ -38,16 +38,17 @@ findKPathsByTransfers :: [Arc] -> Int -> StopID -> StopID -> [([StopID], [RouteI
 findKPathsByTransfers arcs pathAmount startStopID endStopID = _findKPathsByTransfers [] [startStopID] ([], [startStopID])
   where
     _findKPathsByTransfers :: [([RouteID], [StopID])] -> [StopID] -> ([RouteID], [StopID]) -> [([RouteID], [StopID])]
-    _findKPathsByTransfers currentPaths visitedStopIDs buildPathTuple
+    _findKPathsByTransfers currentPaths visitedStopIDs (buildPathRouteIDs, buildPath)
+      | any (\(pRIDs, pSIDs) -> pRIDs == buildPathRouteIDs && length pSIDs <= buildPathLength) currentPaths = currentPaths
       | isCurrentPathsComplete && (buildPathRouteIDsLength > worstPathRouteIDsLength || (buildPathRouteIDsLength == worstPathRouteIDsLength) && (buildPathLength > worstPathLength)) = currentPaths
       | currentStopID == endStopID =
-          let newPaths = nub ((reverse buildPathRouteIDs, reverse buildPath) : currentPaths)
+          -- let newPaths = nubBy (\p1 p2 -> fst p1 == fst p2) ((reverse buildPathRouteIDs, reverse buildPath) : currentPaths)
+          let newPaths = ((buildPathRouteIDs, reverse buildPath) : currentPaths)
           in if isCurrentPathsComplete then take pathAmount (sortBy (comparing (length . fst) <> comparing (length . snd)) newPaths) else newPaths
       | otherwise =
           let nextArcs = filter (\arc -> arc.arcStopID == currentStopID && arc.arcStopIDNext `notElem` visitedStopIDs) arcs
           in foldl' (\acc nextArc -> foldl (\acc2 nextRID -> _findKPathsByTransfers acc2 (nextArc.arcStopIDNext : visitedStopIDs) (appendNext buildPathRouteIDs nextRID, nextArc.arcStopIDNext : buildPath)) acc nextArc.arcRoutesIDs) currentPaths nextArcs
         where
-          (buildPathRouteIDs, buildPath) = buildPathTuple
           buildPathRouteIDsLength = length buildPathRouteIDs
           buildPathLength = length buildPath
           currentStopID = head buildPath
@@ -56,4 +57,3 @@ findKPathsByTransfers arcs pathAmount startStopID endStopID = _findKPathsByTrans
           (worstPathRouteIDs, worstPath) = if isCurrentPathsComplete then last currentPaths else ([],[])
           worstPathRouteIDsLength = length worstPathRouteIDs
           worstPathLength = length worstPath
-
