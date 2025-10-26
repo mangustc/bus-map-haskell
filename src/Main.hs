@@ -1,11 +1,28 @@
 module Main where
 
 import Dijkstra
-import KPath (findKPathsByLength, findKPathsByTransfers)
+import KPath (
+  findKPathsByLength,
+  findKPathsByTransfers,
+  )
 import Structures
-import Text.Read (readMaybe)
-import Data.List (isPrefixOf, intercalate, concat, concatMap, find, nub, intersect, sortBy, delete)
-import Data.Maybe (mapMaybe)
+import Text.Read (
+  readMaybe,
+  )
+import Data.List (
+  isPrefixOf,
+  intercalate,
+  concat,
+  concatMap,
+  find,
+  nub,
+  intersect,
+  sortBy,
+  delete,
+  )
+import Data.Maybe (
+  mapMaybe,
+  )
 import Data.Array
 
 

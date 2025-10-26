@@ -33,6 +33,7 @@ executable app
   build-depends:
       array
     , base >=4.7 && <5
+    , containers
     , data-default
     , lens
     , monomer

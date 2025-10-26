@@ -6,8 +6,18 @@ module KPath
 ) where
 
 import Structures
-import Data.List (sortBy, foldl', nub, nubBy, sort, any)
-import Data.Ord (comparing, Down(..))
+import Data.List (
+  sortBy,
+  foldl',
+  nub,
+  sort,
+  any,
+  concatMap,
+  )
+import Data.Ord (
+  comparing,
+  )
+import qualified Data.Set as Set
 
 
 findKPathsByLength :: [Arc] -> Int -> StopID -> StopID -> [[StopID]]
