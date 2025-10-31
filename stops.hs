@@ -383,3 +383,22 @@ Stop { stopID = 311, stopName = "Кольцевая Алтайская" }
 
 -- 26
 Stop { stopID = 312, stopName = "Перспективная" }
+
+-- пос. предтеченск
+Stop { stopID = 313, stopName = "2-й переезд (Южная)" }
+Stop { stopID = 314, stopName = "Стадион (Южная)" }
+Stop { stopID = 315, stopName = "Золушка (Южная)" }
+Stop { stopID = 316, stopName = "Микрорайон Радужный (Южная)" }
+Stop { stopID = 317, stopName = "АГЗС (Южная)" }
+Stop { stopID = 318, stopName = "пос. Предтеченск" }
+Stop { stopID = 319, stopName = "АГЗС (Северная)" }
+Stop { stopID = 320, stopName = "Микрорайон Радужный (Северная)" }
+Stop { stopID = 321, stopName = "Площадь" }
+Stop { stopID = 322, stopName = "Солнечная" }
+Stop { stopID = 323, stopName = "Золушка (Северная)" }
+Stop { stopID = 324, stopName = "Стадион (Северная)" }
+Stop { stopID = 325, stopName = "2-й переезд (Северная)" }
+Stop { stopID = 326, stopName = "Геофит" }
+
+-- 27
+Stop { stopID = 327, stopName = "Рынок Северный" }
