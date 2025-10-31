@@ -13,18 +13,33 @@ import Data.List (
   any,
   concatMap,
   intersect,
+  insertBy,
   )
 import Data.Ord (
   comparing,
   )
 import qualified Data.Set as Set
 
+-- options: 
+-- 1. try to use sets for stopIDs.
+--    Possible optimizations: size will be counted instantly and should lead to better performance.
+--    Possible downsides: adding a stopID to a set could hurt perfromance.
+-- 2. append path to currentPaths already sorted. Keep currentPaths sorted
+
+
 isPointlessAgainst :: (Set.Set RouteID, [StopID], [RouteID]) -> (Set.Set RouteID, [StopID], [RouteID]) -> Bool
 isPointlessAgainst (pointlessRIDs, pointlessSIDs, _) (betterRIDs, betterSIDs, _) =
-  let betterRIDsLength = Set.size betterRIDs
-      betterSIDsLength = length betterSIDs
-      pointlessSIDsLength = length pointlessSIDs
-  in (betterRIDs `Set.isSubsetOf` pointlessRIDs && pointlessSIDsLength >= betterSIDsLength)
+  betterRIDs `Set.isSubsetOf` pointlessRIDs && length pointlessSIDs >= length betterSIDs
+
+insertCurrentPathsTransfers :: (Set.Set RouteID, [StopID], [RouteID]) -> [(Set.Set RouteID, [StopID], [RouteID])] -> [(Set.Set RouteID, [StopID], [RouteID])]
+insertCurrentPathsTransfers buildPath@(buildPathRIDs, buildPathSIDs, _) xs =
+  let buildPathSIDsLength = length buildPathSIDs
+      buildPathRIDsLength = Set.size buildPathRIDs
+      insertByCached [] = [buildPath]
+      insertByCached all@(y@(pRIDs, pSIDs, _):ys)
+        | (compare buildPathRIDsLength (Set.size pRIDs) <> compare buildPathSIDsLength (length pSIDs)) == LT = buildPath : all
+        | otherwise = y : insertByCached ys
+  in insertByCached xs
 
 findKPathsByTransfers :: [Arc] -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
 findKPathsByTransfers arcs pathAmount startSID endSID = map (\(_, sIDs, rIDs) -> (tail (reverse rIDs), reverse sIDs)) result
@@ -39,7 +54,7 @@ findKPathsByTransfers arcs pathAmount startSID endSID = map (\(_, sIDs, rIDs) ->
 
       -- has come to the end
       | currentSID == endSID =
-          let newPaths = sortBy (\(pRIDs1, pSIDs1, _) (pRIDs2, pSIDs2, _) -> comparing Set.size pRIDs1 pRIDs2 <> comparing length pSIDs1 pSIDs2) (buildPath : filter (\path -> not (path `isPointlessAgainst` buildPath)) currentPaths)
+          let newPaths = insertCurrentPathsTransfers buildPath (filter (\path -> not (path `isPointlessAgainst` buildPath)) currentPaths)
           in if isCurrentPathsComplete then take pathAmount newPaths else newPaths
 
       | otherwise =
@@ -58,6 +73,16 @@ findKPathsByTransfers arcs pathAmount startSID endSID = map (\(_, sIDs, rIDs) ->
           worstPathSIDsLength = length worstPathSIDs
     result = _findKPathsByTransfers [] (Set.singleton startSID) (Set.empty, [startSID], [0])
 
+insertCurrentPathsLength :: (Set.Set RouteID, [StopID], [RouteID]) -> [(Set.Set RouteID, [StopID], [RouteID])] -> [(Set.Set RouteID, [StopID], [RouteID])]
+insertCurrentPathsLength buildPath@(buildPathRIDs, buildPathSIDs, _) xs =
+  let buildPathSIDsLength = length buildPathSIDs
+      buildPathRIDsLength = Set.size buildPathRIDs
+      insertByCached [] = [buildPath]
+      insertByCached all@(y@(pRIDs, pSIDs, _):ys)
+        | (compare buildPathSIDsLength (length pSIDs) <> compare buildPathRIDsLength (Set.size pRIDs)) == LT = buildPath : all
+        | otherwise = y : insertByCached ys
+  in insertByCached xs
+
 findKPathsByLength :: [Arc] -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
 findKPathsByLength arcs pathAmount startSID endSID = map (\(_, sIDs, rIDs) -> (tail (reverse rIDs), reverse sIDs)) result
   where
@@ -71,7 +96,8 @@ findKPathsByLength arcs pathAmount startSID endSID = map (\(_, sIDs, rIDs) -> (t
 
       -- has come to the end
       | currentSID == endSID =
-          let newPaths = sortBy (\(pRIDs1, pSIDs1, _) (pRIDs2, pSIDs2, _) -> comparing length pSIDs1 pSIDs2 <> comparing Set.size pRIDs1 pRIDs2) (buildPath : filter (\path -> not (path `isPointlessAgainst` buildPath)) currentPaths)
+          -- let newPaths = sortBy (\(pRIDs1, pSIDs1, _) (pRIDs2, pSIDs2, _) -> comparing length pSIDs1 pSIDs2 <> comparing Set.size pRIDs1 pRIDs2) (buildPath : filter (\path -> not (path `isPointlessAgainst` buildPath)) currentPaths)
+          let newPaths = insertCurrentPathsLength buildPath (filter (\path -> not (path `isPointlessAgainst` buildPath)) currentPaths)
           in if isCurrentPathsComplete then take pathAmount newPaths else newPaths
 
       | otherwise =
