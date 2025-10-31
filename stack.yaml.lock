@@ -3,21 +3,7 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/topics/lock_files
 
-packages:
-- completed:
-    hackage: nanovg-0.8.1.0@sha256:f2e06224d69262e2984f34f5d8e62fd14265337d3d45f92776e836651d9a420a,4914
-    pantry-tree:
-      sha256: 7de4812c55a0d0e0115066a1480de19956c0f51671b5ca6823e01e2e9e65ad00
-      size: 2558
-  original:
-    hackage: nanovg-0.8.1.0
-- completed:
-    hackage: monomer-1.6.0.0@sha256:7202f3510b8d6affbe0d0d449528d87118ba8c1a0fb761e1a99e7bb7f6160874,18003
-    pantry-tree:
-      sha256: e2d848cf96cde32ebea40c66753160a3b48ad8b530d8b6f3eb812624d2665077
-      size: 15189
-  original:
-    hackage: monomer-1.6.0.0
+packages: []
 snapshots:
 - completed:
     sha256: 8b211c5a6aad3787e023dfddaf7de7868968e4f240ecedf14ad1c5b2199046ca
