@@ -29,13 +29,8 @@ instance Show Route where
   show (Route { routeID = rID, routeName = rName, routePath = rPath}) = "Автобус\n\tНазвание: " ++ rName ++ "\n\tПуть: " ++ show rPath
 
 type PathID = Int
-type PathSegment = ([RouteID], StopID, StopID)
-data Path where
-  Path :: {
-    pathID :: PathID,
-    pathSegments :: [PathSegment]
-  } -> Path
-  deriving (Show, Read)
+type PathSegment = (RouteID, StopID, StopID)
+type Path = [PathSegment]
 
 data Arc where
   Arc :: {

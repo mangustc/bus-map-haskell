@@ -12,21 +12,21 @@ import Data.List (insertBy, intersect, nub)
 import Data.Ord (comparing)
 import Debug.Trace (trace)
 
-isPointlessAgainst :: ([RouteID], [StopID]) -> ([RouteID], [StopID]) -> Bool
-isPointlessAgainst (pointlessRIDs, pointlessSIDs) (betterRIDs, betterSIDs) = let bRIDs = nub betterRIDs in
-  length (bRIDs `intersect` pointlessRIDs) == length bRIDs && length pointlessSIDs >= length betterSIDs
+isPointlessAgainst :: QueueElement -> QueueElement -> Bool
+isPointlessAgainst pointlessQE betterQE = let bRIDs = nub betterQE.qePathRouteIDs in
+  length (bRIDs `intersect` pointlessQE.qePathRouteIDs) == betterQE.qeTransferCost + 1 && pointlessQE.qeLengthCost >= betterQE.qeLengthCost
 
-findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
+findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [QueueElement]
 findKPathsByLength = findKPaths insertSortedByLength
 
-findKPathsByTransfers :: Graph -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
+findKPathsByTransfers :: Graph -> Int -> StopID -> StopID -> [QueueElement]
 findKPathsByTransfers = findKPaths insertSortedByTransfers
 
-findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
-findKPaths insertFunction graph pathAmount startSID endSID = map (\(rIDs, sIDs) -> (tail rIDs, sIDs)) $ reverse (findKPathsByLength' [QueueElement {qeLengthCost = 0, qeTransferCost = 0, qeCurrentStopID = startSID, qePathRouteIDs = [0], qePathStopIDs = [startSID]}] Map.empty [])
+findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [QueueElement]
+findKPaths insertFunction graph pathAmount startSID endSID = map (\qe -> qe {qePathRouteIDs = tail (reverse qe.qePathRouteIDs), qePathStopIDs = reverse qe.qePathStopIDs}) $ reverse (findKPathsByLength' [QueueElement {qeLengthCost = 0, qeTransferCost = 0, qeCurrentStopID = startSID, qePathRouteIDs = [0], qePathStopIDs = [startSID]}] Map.empty [])
   where
-    maximumRIDsAmount = length (concat (Map.elems graph))
-    findKPathsByLength' :: [QueueElement] -> Map.Map StopID Int -> [([RouteID], [StopID])] -> [([RouteID], [StopID])]
+    maximumRIDsAmount = length (nub (concat (map snd (concat (Map.elems graph)))))
+    findKPathsByLength' :: [QueueElement] -> Map.Map StopID Int -> [QueueElement] -> [QueueElement]
     findKPathsByLength' queue sIDsVisitedAmount currentPaths
       | length currentPaths >= pathAmount = currentPaths
       | null queue = currentPaths
@@ -38,10 +38,9 @@ findKPaths insertFunction graph pathAmount startSID endSID = map (\(rIDs, sIDs) 
              then findKPathsByLength' queue' sIDsVisitedAmount currentPaths
              else if currentEntry.qeCurrentStopID == endSID
                   then
-                    let newPath = (reverse currentEntry.qePathRouteIDs, reverse currentEntry.qePathStopIDs)
-                        isPathPointless = any (\path -> newPath `isPointlessAgainst` path) currentPaths
+                    let isPathPointless = any (\path -> currentEntry `isPointlessAgainst` path) currentPaths
                         plus = if isPathPointless then 0 else 1
-                        filteredPaths = if isPathPointless then currentPaths else newPath : filter (\path -> not (path `isPointlessAgainst` newPath)) currentPaths
+                        filteredPaths = if isPathPointless then currentPaths else currentEntry : filter (\path -> not (path `isPointlessAgainst` currentEntry)) currentPaths
                         newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDVisitedAmount + plus) sIDsVisitedAmount
                     in findKPathsByLength' queue' newSIDsVisitedAmount filteredPaths
                   else
@@ -63,3 +62,4 @@ findKPaths insertFunction graph pathAmount startSID endSID = map (\(rIDs, sIDs) 
                         newQueue = foldr insertFunction queue' newEntries
                         newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDVisitedAmount + 1) sIDsVisitedAmount
                     in findKPathsByLength' newQueue newSIDsVisitedAmount currentPaths
+

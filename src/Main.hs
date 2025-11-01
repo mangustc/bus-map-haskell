@@ -71,12 +71,13 @@ main = do
   -- print arcs
   -- let paths = findKPathsByLength graph 5 4 6
   -- let paths = findKPathsByLength graph 5 74 134
-  -- let paths = findKPathsByLength graph 5 99 133
-  let paths = findKPathsByTransfers graph 5 4 6
+  let paths = findKPathsByLength graph 5 99 133
+  -- let paths = findKPathsByTransfers graph 5 4 6
   -- let paths = findKPathsByTransfers graph 5 74 134
   -- let paths = findKPathsByTransfers graph 5 99 133
   -- mapM_ print (map (\path -> (length path, path)) paths)
-  -- print (length paths)
+  mapM_ print paths
+  print (length paths)
 
   -- let paths = dfsPathsMat 74 134 mat
   -- let paths = dfsPaths 74 134 arcs
@@ -111,8 +112,8 @@ main = do
   -- print (leastTransfers [[27], [11]])
   -- mapM_ print paths
   -- mapM_ print paths
-  mapM_ print (map (\(pRIDs, pSIDs) -> (nub pRIDs, pSIDs)) paths)
-  mapM_ print (map (\(pRIDs, pSIDs) -> (length (nub pRIDs), length pSIDs)) paths)
+  -- mapM_ print (map (\(pRIDs, pSIDs) -> (nub pRIDs, pSIDs)) paths)
+  -- mapM_ print (map (\(pRIDs, pSIDs) -> (length (nub pRIDs), length pSIDs)) paths)
   -- mapM_ print (map length paths)
   -- mapM_ putStrLn (map (stopIDsToString stops) paths)
   -- print (length paths)
