@@ -25,7 +25,7 @@ findKPathsByTransfers = findKPaths insertSortedByTransfers
 findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [QueueElement]
 findKPaths insertFunction graph pathAmount startSID endSID = map (\qe -> qe {qePathRouteIDs = tail (reverse qe.qePathRouteIDs), qePathStopIDs = reverse qe.qePathStopIDs}) $ reverse (findKPathsByLength' [QueueElement {qeLengthCost = 0, qeTransferCost = 0, qeCurrentStopID = startSID, qePathRouteIDs = [0], qePathStopIDs = [startSID]}] Map.empty [])
   where
-    maximumRIDsAmount = length (nub (concat (map snd (concat (Map.elems graph)))))
+    maximumRIDsAmount = length (nub (concatMap snd (concat (Map.elems graph))))
     findKPathsByLength' :: [QueueElement] -> Map.Map StopID Int -> [QueueElement] -> [QueueElement]
     findKPathsByLength' queue sIDsVisitedAmount currentPaths
       | length currentPaths >= pathAmount = currentPaths

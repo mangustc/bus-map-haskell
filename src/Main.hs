@@ -23,6 +23,9 @@ import Data.List (
 import Data.Maybe (
   mapMaybe, fromJust,
   )
+import CLI (
+  cliProcess
+  )
 import Data.Array
 import qualified Data.Set as Set
 
@@ -66,57 +69,4 @@ main = do
 
   sanityChecks stops routes
 
-  let arcs = arcsFromRoutes routes
-  let graph = arcsToGraph arcs
-  -- print arcs
-  -- let paths = findKPathsByLength graph 5 4 6
-  -- let paths = findKPathsByLength graph 5 74 134
-  let paths = findKPathsByLength graph 5 99 133
-  -- let paths = findKPathsByTransfers graph 5 4 6
-  -- let paths = findKPathsByTransfers graph 5 74 134
-  -- let paths = findKPathsByTransfers graph 5 99 133
-  -- mapM_ print (map (\path -> (length path, path)) paths)
-  mapM_ print paths
-  print (length paths)
-
-  -- let paths = dfsPathsMat 74 134 mat
-  -- let paths = dfsPaths 74 134 arcs
-  -- let paths = findPathsByTransfers 4 74 134 mat
-  -- let paths = bfsPaths 74 134 arcs
-  -- let graph = arcsToGraph arcs
-  -- let solution = dijkstra graph 74
-  -- let path = pathToNode solution 134
-  -- let paths = findKPathsByLength arcs 5 4 6
-  -- let paths = findKPathsByTransfers arcs 5 74 134
-  -- let paths = findKPathsByLength arcs 5 1 95
-  -- let paths = pathsToCurrentPaths arcs (findKPathsByTest arcs 5 4 6)
-  -- mapM_ print (map (\(pRIDs, pSIDs) -> (nub pRIDs, pSIDs)) paths)
-  -- mapM_ print (map (\(pRIDs, pSIDs) -> (length (nub pRIDs), length pSIDs)) paths)
-  -- let paths = findKPathsByTransfers arcs 5 4 6
-  -- let paths = findKPathsByLength arcs 5 99 133
-  -- let paths = findKPathsByTransfers arcs 5 99 133
-
-  -- putStrLn (intercalate "\n\n" (map show (map (pathToPathSegments arcs) paths)))
-  -- print paths
-  -- mapM_ print (sortBy (\(node1, _) (node2, _) -> compare node1 node2) solution)
-  -- mapM_ print (sortBy (\(_, (_, node1)) (_, (_, node2)) -> compare node1 node2) solution)
-  -- mapM_ print (dnodeForNode solution 121)
-  -- print path
-
-  -- print (Set.fromList [8,3] `Set.isSubsetOf` Set.fromList [8,3,6])
-  -- print ([3,6,2] `elem` map fst [([6,2], []),([3,6,2], [])])
-  -- putStrLn (concatMap (const "") paths)
-  -- mapM_ print (take 10 arcs)
-  -- print (leastTransfers (map arcRoutesIDs (take 10 arcs)))
-  -- print (leastTransfers [[27,33],[27],[27,29],[29,11]])
-  -- print (leastTransfers [[27], [11]])
-  -- mapM_ print paths
-  -- mapM_ print paths
-  -- mapM_ print (map (\(pRIDs, pSIDs) -> (nub pRIDs, pSIDs)) paths)
-  -- mapM_ print (map (\(pRIDs, pSIDs) -> (length (nub pRIDs), length pSIDs)) paths)
-  -- mapM_ print (map length paths)
-  -- mapM_ putStrLn (map (stopIDsToString stops) paths)
-  -- print (length paths)
-  -- print (map (const "1") paths)
-  -- print ([1..1000000000])
-  -- mapM_ print (map (\path -> hasDuplicates (map (\arc -> arc.arcStopID) path)) paths)
+  cliProcess stops routes

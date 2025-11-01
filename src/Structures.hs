@@ -1,8 +1,9 @@
 module Structures where
 
 import qualified Data.Map as Map
-import Data.List (insertBy)
+import Data.List (insertBy, groupBy, find)
 import Data.Ord (comparing)
+import Data.Maybe (fromMaybe)
 
 type StopID = Int
 type StopName = String
@@ -14,6 +15,9 @@ data Stop where
   deriving (Read)
 instance Show Stop where
   show (Stop { stopID = sID, stopName = sName}) = sName
+
+getStopByStopID :: [Stop] -> StopID -> Stop
+getStopByStopID stops sID = fromMaybe (error "should not be possible") (find (\stop -> stop.stopID == sID) stops)
 
 type RouteID = Int
 type RouteName = String
@@ -28,9 +32,20 @@ data Route where
 instance Show Route where
   show (Route { routeID = rID, routeName = rName, routePath = rPath}) = "Автобус\n\tНазвание: " ++ rName ++ "\n\tПуть: " ++ show rPath
 
+getRouteByRouteID :: [Route] -> RouteID -> Route
+getRouteByRouteID routes rID = fromMaybe (error "should not be possible") (find (\route -> route.routeID == rID) routes)
+
+
 type PathID = Int
 type PathSegment = (RouteID, StopID, StopID)
-type Path = [PathSegment]
+data Path where
+  Path :: {
+    pathLength :: Int,
+    pathTransferAmount :: Int,
+    pathFullSegments :: [PathSegment],
+    pathConciseSegments :: [PathSegment]
+  } -> Path
+  deriving (Read, Show)
 
 data Arc where
   Arc :: {
@@ -46,9 +61,6 @@ instance Eq Arc where
 
 type Edge = (StopID, StopID, [RouteID])
 type Graph = Map.Map StopID [(StopID, [RouteID])]
-
--- Queue element: (cost, current node, path)
--- type QueueElement = (Weight, StopID, [StopID])
 type Weight = Int
 data QueueElement where
   QueueElement :: {
@@ -86,3 +98,23 @@ insertSortedByLength newEntry queue = insertBy (\qe1 qe2 -> comparing qeLengthCo
 
 insertSortedByTransfers :: QueueElement -> [QueueElement] -> [QueueElement]
 insertSortedByTransfers newEntry queue = insertBy (\qe1 qe2 -> comparing qeTransferCost qe1 qe2 <> comparing qeLengthCost qe1 qe2) newEntry queue
+
+queueElementToPath :: QueueElement -> Path
+queueElementToPath qe = Path {
+  pathLength = qe.qeLengthCost,
+  pathTransferAmount = qe.qeTransferCost,
+  pathFullSegments = zipWith (\rID (sID, sIDNext) -> (rID, sID, sIDNext)) qe.qePathRouteIDs (zip qe.qePathStopIDs (tail qe.qePathStopIDs)),
+  pathConciseSegments = getConciseSegments fullSegs
+  }
+  where
+    getConciseSegments :: [PathSegment] -> [PathSegment]
+    getConciseSegments [] = []
+    getConciseSegments [hps] = [hps]
+    getConciseSegments (hps@(hRID, hSID, hSIDNext):tps)
+      | nRID == hRID = (hRID, hSID, nSIDNext) : tail next
+      | otherwise = hps : next
+      where
+        next = getConciseSegments tps
+        (nRID,nSID,nSIDNext) = head next
+
+    fullSegs = zipWith (\rID (sID, sIDNext) -> (rID, sID, sIDNext)) qe.qePathRouteIDs (zip qe.qePathStopIDs (tail qe.qePathStopIDs))

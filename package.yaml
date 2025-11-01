@@ -20,6 +20,7 @@ dependencies:
   - base >= 4.7 && < 5
   - array
   - containers
+  - mtl
   # - data-default
   # - lens
   # - monomer
