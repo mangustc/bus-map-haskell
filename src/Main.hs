@@ -26,18 +26,6 @@ import Data.Maybe (
 import Data.Array
 import qualified Data.Set as Set
 
-
-getStopByStopID :: [Stop] -> Int -> Stop
-getStopByStopID stops sID = head (filter (\s -> s.stopID == sID) stops)
-
-getRouteByRouteID :: [Route] -> Int -> Route
-getRouteByRouteID routes rID = head (filter (\r -> r.routeID == rID) routes)
-
-getRoutePathAsString :: [Stop] -> Route -> String
-getRoutePathAsString stops route = "Путь Автобуса " ++ route.routeName ++ ":\n"
-  ++ intercalate "\n" [show i ++ ". " ++ show (getStopByStopID stops x) | (i, x) <- zip [1..] route.routePath]
-
-
 hasDuplicates :: Eq a => [a] -> Bool
 hasDuplicates [] = False
 hasDuplicates (x:xs) = x `elem` xs || hasDuplicates xs
@@ -65,22 +53,6 @@ parseLines lines = mapMaybe readMaybe filteredLines
   where
     filteredLines = filter (\l -> not (null l || isPrefixOf "--" l)) lines
 
-stopIDsToString :: [Stop] -> [StopID] -> String
-stopIDsToString stops stopIDs = "Путь:\n" ++ intercalate "\n" (map (\sID -> (getStopByStopID stops sID).stopName) stopIDs) ++ "\n"
-
-pathsToCurrentPaths :: [Arc] -> [[StopID]] -> [([RouteID], [StopID])]
-pathsToCurrentPaths arcs paths = map (\path -> convertPath path arcs) paths
-
-convertPath :: [StopID] -> [Arc] -> ([RouteID], [StopID])
-convertPath stops arcs = 
-  let pairs = zip stops (tail stops)
-      routeLists = map (\(s1, s2) -> 
-                        case find (\arc -> arcStopID arc == s1 && arcStopIDNext arc == s2) arcs of
-                          Just arc -> arcRoutesIDs arc
-                          Nothing  -> []) pairs
-      allRoutes = concat routeLists
-  in (allRoutes, stops)
-
 main :: IO ()
 main = do
 
@@ -100,10 +72,9 @@ main = do
   -- let paths = findKPathsByLength graph 5 4 6
   -- let paths = findKPathsByLength graph 5 74 134
   -- let paths = findKPathsByLength graph 5 99 133
-  -- let paths = findKPathsByTransfers graph 5 4 6
+  let paths = findKPathsByTransfers graph 5 4 6
   -- let paths = findKPathsByTransfers graph 5 74 134
-  let paths = findKPathsByTransfers graph 5 99 133
-  -- let paths = findKPathsByLength graph 5 4 6
+  -- let paths = findKPathsByTransfers graph 5 99 133
   -- mapM_ print (map (\path -> (length path, path)) paths)
   -- print (length paths)
 
