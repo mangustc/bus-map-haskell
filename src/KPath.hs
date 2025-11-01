@@ -14,7 +14,6 @@ import Debug.Trace (trace)
 
 isPointlessAgainst :: ([RouteID], [StopID]) -> ([RouteID], [StopID]) -> Bool
 isPointlessAgainst (pointlessRIDs, pointlessSIDs) (betterRIDs, betterSIDs) = let bRIDs = nub betterRIDs in
-  -- length (bRIDs `intersect` pointlessRIDs) == length bRIDs && length (betterSIDs `intersect` pointlessSIDs) == length betterSIDs
   length (bRIDs `intersect` pointlessRIDs) == length bRIDs && length pointlessSIDs >= length betterSIDs
 
 findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
@@ -23,10 +22,10 @@ findKPathsByLength = findKPaths insertSortedByLength
 findKPathsByTransfers :: Graph -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
 findKPathsByTransfers = findKPaths insertSortedByTransfers
 
--- каждый раз как новый автобус проходится по остановке записывать его в список sIDsVisitedAmount, если автобусов там один, то максимум может быть pathAmount, если два автобуса, то максимум может быть pathAmount * 2 и так далее
 findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
 findKPaths insertFunction graph pathAmount startSID endSID = map (\(rIDs, sIDs) -> (tail rIDs, sIDs)) $ reverse (findKPathsByLength' [QueueElement {qeLengthCost = 0, qeTransferCost = 0, qeCurrentStopID = startSID, qePathRouteIDs = [0], qePathStopIDs = [startSID]}] Map.empty [])
   where
+    maximumRIDsAmount = length (concat (Map.elems graph))
     findKPathsByLength' :: [QueueElement] -> Map.Map StopID Int -> [([RouteID], [StopID])] -> [([RouteID], [StopID])]
     findKPathsByLength' queue sIDsVisitedAmount currentPaths
       | length currentPaths >= pathAmount = currentPaths
@@ -35,7 +34,7 @@ findKPaths insertFunction graph pathAmount startSID endSID = map (\(rIDs, sIDs) 
           let currentEntry = head queue
               queue' = tail queue
               currentSIDVisitedAmount = Map.findWithDefault 0 currentEntry.qeCurrentStopID sIDsVisitedAmount
-          in if currentSIDVisitedAmount >= pathAmount * 24
+          in if currentSIDVisitedAmount >= pathAmount * (maximumRIDsAmount * 3)
              then findKPathsByLength' queue' sIDsVisitedAmount currentPaths
              else if currentEntry.qeCurrentStopID == endSID
                   then
@@ -58,7 +57,7 @@ findKPaths insertFunction graph pathAmount startSID endSID = map (\(rIDs, sIDs) 
                             } | (nextSID, nextRIDs) <- nextSIDsWithRIDs,
                             nextRID <- nextRIDs,
                             let nextTransferCost = currentEntry.qeTransferCost + (if headRID == nextRID then 0 else 1),
-                            nextTransferCost <= 8 &&
+                            nextTransferCost <= maximumRIDsAmount &&
                               ((headRID == nextRID) || nextRID `notElem` currentEntry.qePathRouteIDs) &&
                               nextSID `notElem` currentEntry.qePathStopIDs ]
                         newQueue = foldr insertFunction queue' newEntries
