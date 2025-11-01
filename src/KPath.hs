@@ -6,105 +6,54 @@ module KPath
 ) where
 
 import Structures
-import Data.List (
-  sortBy,
-  foldl',
-  nub,
-  any,
-  concatMap,
-  intersect,
-  insertBy,
-  )
-import Data.Ord (
-  comparing,
-  )
-import qualified Data.Set as Set
+import qualified Data.Map as Map
+import Data.List (insertBy, intersect, nub)
+import Data.Ord (comparing)
+import Debug.Trace (trace)
 
-isPointlessAgainst :: (Set.Set RouteID, Set.Set StopID, [RouteID], [StopID]) -> (Set.Set RouteID, Set.Set StopID, [RouteID], [StopID]) -> Bool
-isPointlessAgainst (pointlessRIDs, pointlessSIDs, _, _) (betterRIDs, betterSIDs, _, _) =
-  betterRIDs `Set.isSubsetOf` pointlessRIDs && Set.size pointlessSIDs >= Set.size betterSIDs
+isPointlessAgainst :: ([RouteID], [StopID]) -> ([RouteID], [StopID]) -> Bool
+isPointlessAgainst (pointlessRIDs, pointlessSIDs) (betterRIDs, betterSIDs) = let bRIDs = nub betterRIDs in
+  length (bRIDs `intersect` pointlessRIDs) == length bRIDs && length pointlessSIDs >= length betterSIDs
 
-insertCurrentPathsTransfers :: (Set.Set RouteID, Set.Set StopID, [RouteID], [StopID]) -> [(Set.Set RouteID, Set.Set StopID, [RouteID], [StopID])] -> [(Set.Set RouteID, Set.Set StopID, [RouteID], [StopID])]
-insertCurrentPathsTransfers buildPath@(buildPathRIDs, buildPathSIDs, _, _) xs =
-  let buildPathSIDsLength = Set.size buildPathSIDs
-      buildPathRIDsLength = Set.size buildPathRIDs
-      insertByCached [] = [buildPath]
-      insertByCached all@(y@(pRIDs, pSIDs, _, _):ys)
-        | (compare buildPathRIDsLength (Set.size pRIDs) <> compare buildPathSIDsLength (Set.size pSIDs)) == LT = buildPath : all
-        | otherwise = y : insertByCached ys
-  in insertByCached xs
+findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
+findKPathsByLength = findKPaths insertSortedByLength
 
-findKPathsByTransfers :: [Arc] -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
-findKPathsByTransfers arcs pathAmount startSID endSID = map (\(_, _, rIDs, sIDs) -> (tail (reverse rIDs), reverse sIDs)) result
+findKPathsByTransfers :: Graph -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
+findKPathsByTransfers = findKPaths insertSortedByTransfers
+
+-- каждый раз как новый автобус проходится по остановке записывать его в список sIDsVisitedAmount, если автобусов там один, то максимум может быть pathAmount, если два автобуса, то максимум может быть pathAmount * 2 и так далее
+findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
+findKPaths insertFunction graph pathAmount startSID endSID = reverse (findKPathsByLength' [QueueElement {qeLengthCost = 0, qeTransferCost = 0, qeCurrentStopID = startSID, qePathRouteIDs = [0], qePathStopIDs = [startSID]}] Map.empty [])
   where
-    maximumRIDsAmount = length (nub (concatMap arcRoutesIDs arcs))
-    _findKPathsByTransfers :: [(Set.Set RouteID, Set.Set StopID, [RouteID], [StopID])] -> Set.Set StopID -> (Set.Set RouteID, Set.Set StopID, [RouteID], [StopID]) -> [(Set.Set RouteID, Set.Set StopID, [RouteID], [StopID])]
-    _findKPathsByTransfers currentPaths visitedStopIDs buildPath@(buildPathRIDs, buildPathSIDs, buildPathRIDsPath, buildPathSIDsPath)
-      -- Reasons to end search early
-      | buildPathRIDsLength > maximumRIDsAmount = currentPaths
-      | isCurrentPathsComplete && (buildPathRIDsLength > worstPathRIDsLength || (buildPathRIDsLength == worstPathRIDsLength) && (buildPathSIDsLength > worstPathSIDsLength)) = currentPaths
-      | any (\path -> buildPath `isPointlessAgainst` path) currentPaths = currentPaths
-
-      -- has come to the end
-      | currentSID == endSID =
-          let newPaths = insertCurrentPathsTransfers buildPath (filter (\path -> not (path `isPointlessAgainst` buildPath)) currentPaths)
-          in if isCurrentPathsComplete then take pathAmount newPaths else newPaths
-
+    findKPathsByLength' :: [QueueElement] -> Map.Map StopID Int -> [([RouteID], [StopID])] -> [([RouteID], [StopID])]
+    findKPathsByLength' queue sIDsVisitedAmount currentPaths
+      | length currentPaths >= pathAmount = currentPaths
+      | null queue = currentPaths
       | otherwise =
-          let nextArcs = filter (\arc -> arc.arcStopID == currentSID && arc.arcStopIDNext `Set.notMember` visitedStopIDs) arcs
-          in foldl' (\acc nextArc -> foldl' (\acc2 nextRID ->
-            (_findKPathsByTransfers acc2 (Set.insert nextArc.arcStopIDNext visitedStopIDs) (Set.insert nextRID buildPathRIDs, Set.insert nextArc.arcStopIDNext buildPathSIDs, nextRID : buildPathRIDsPath, nextArc.arcStopIDNext : buildPathSIDsPath))
-            ) acc (filter (\rID -> head buildPathRIDsPath == rID || rID `Set.notMember` buildPathRIDs) nextArc.arcRoutesIDs)) currentPaths nextArcs
-        where
-          buildPathRIDsLength = Set.size buildPathRIDs
-          buildPathSIDsLength = Set.size buildPathSIDs
-          currentSID = head buildPathSIDsPath
-
-          isCurrentPathsComplete = length currentPaths == pathAmount
-          (worstPathRIDs, worstPathSIDs, _, _) = if isCurrentPathsComplete then last currentPaths else (Set.empty,Set.empty,[],[])
-          worstPathRIDsLength = Set.size worstPathRIDs
-          worstPathSIDsLength = Set.size worstPathSIDs
-    result = _findKPathsByTransfers [] (Set.singleton startSID) (Set.empty, Set.singleton startSID, [0], [startSID])
-
-insertCurrentPathsLength :: (Set.Set RouteID, Set.Set StopID, [RouteID], [StopID]) -> [(Set.Set RouteID, Set.Set StopID, [RouteID], [StopID])] -> [(Set.Set RouteID, Set.Set StopID, [RouteID], [StopID])]
-insertCurrentPathsLength buildPath@(buildPathRIDs, buildPathSIDs, _, _) xs =
-  let buildPathSIDsLength = Set.size buildPathSIDs
-      buildPathRIDsLength = Set.size buildPathRIDs
-      insertByCached [] = [buildPath]
-      insertByCached all@(y@(pRIDs, pSIDs, _, _):ys)
-        | (compare buildPathSIDsLength (Set.size pSIDs) <> compare buildPathRIDsLength (Set.size pRIDs) ) == LT = buildPath : all
-        | otherwise = y : insertByCached ys
-  in insertByCached xs
-
-findKPathsByLength :: [Arc] -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
-findKPathsByLength arcs pathAmount startSID endSID = map (\(_, _, rIDs, sIDs) -> (tail (reverse rIDs), reverse sIDs)) result
-  where
-    maximumRIDsAmount = length (nub (concatMap arcRoutesIDs arcs))
-    _findKPathsByLength :: [(Set.Set RouteID, Set.Set StopID, [RouteID], [StopID])] -> Set.Set StopID -> (Set.Set RouteID, Set.Set StopID, [RouteID], [StopID]) -> [(Set.Set RouteID, Set.Set StopID, [RouteID], [StopID])]
-    _findKPathsByLength currentPaths visitedStopIDs buildPath@(buildPathRIDs, buildPathSIDs, buildPathRIDsPath, buildPathSIDsPath)
-      -- Reasons to end search early
-      | buildPathRIDsLength > maximumRIDsAmount = currentPaths
-      | isCurrentPathsComplete && (buildPathSIDsLength > worstPathSIDsLength || (buildPathSIDsLength == worstPathSIDsLength) && (buildPathRIDsLength > worstPathRIDsLength)) = currentPaths
-      | any (\path -> buildPath `isPointlessAgainst` path) currentPaths = currentPaths
-
-      -- has come to the end
-      | currentSID == endSID =
-          let newPaths = insertCurrentPathsLength buildPath (filter (\path -> not (path `isPointlessAgainst` buildPath)) currentPaths)
-          in if isCurrentPathsComplete then take pathAmount newPaths else newPaths
-
-      | otherwise =
-          let nextArcs = filter (\arc -> arc.arcStopID == currentSID && arc.arcStopIDNext `Set.notMember` visitedStopIDs) arcs
-          in foldl' (\acc nextArc -> foldl' (\acc2 nextRID ->
-            (_findKPathsByLength acc2 (Set.insert nextArc.arcStopIDNext visitedStopIDs) (Set.insert nextRID buildPathRIDs, Set.insert nextArc.arcStopIDNext buildPathSIDs, nextRID : buildPathRIDsPath, nextArc.arcStopIDNext : buildPathSIDsPath))
-            ) acc (filter (\rID -> head buildPathRIDsPath == rID || rID `Set.notMember` buildPathRIDs) nextArc.arcRoutesIDs)) currentPaths nextArcs
-        where
-          buildPathRIDsLength = Set.size buildPathRIDs
-          buildPathSIDsLength = Set.size buildPathSIDs
-          currentSID = head buildPathSIDsPath
-
-          isCurrentPathsComplete = length currentPaths == pathAmount
-          (worstPathRIDs, worstPathSIDs, _, _) = if isCurrentPathsComplete then last currentPaths else (Set.empty,Set.empty,[],[])
-          worstPathRIDsLength = Set.size worstPathRIDs
-          worstPathSIDsLength = Set.size worstPathSIDs
-    result = _findKPathsByLength [] (Set.singleton startSID) (Set.empty, Set.singleton startSID, [0], [startSID])
+          let currentEntry = head queue
+              queue' = tail queue
+              currentSIDVisitedAmount = Map.findWithDefault 0 currentEntry.qeCurrentStopID sIDsVisitedAmount
+          in if currentSIDVisitedAmount >= pathAmount
+             then findKPathsByLength' queue' sIDsVisitedAmount currentPaths
+             else if currentEntry.qeCurrentStopID == endSID
+                  then
+                    let newPath = (reverse currentEntry.qePathRouteIDs, reverse currentEntry.qePathStopIDs)
+                        isPathPointless = any (\path -> newPath `isPointlessAgainst` path) currentPaths
+                        plus = if isPathPointless then 0 else 1
+                        filteredPaths = if isPathPointless then trace (show currentEntry) currentPaths else newPath : filter (\path -> not (path `isPointlessAgainst` newPath)) currentPaths
+                        newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDVisitedAmount + plus) sIDsVisitedAmount
+                    in findKPathsByLength' queue' newSIDsVisitedAmount filteredPaths
+                  else
+                    let nextSIDsWithWeights = Map.findWithDefault [] currentEntry.qeCurrentStopID graph
+                        newEntries = [
+                          QueueElement {
+                            qeLengthCost = currentEntry.qeLengthCost + 1,
+                            qeTransferCost = currentEntry.qeTransferCost + (if head currentEntry.qePathRouteIDs == nextRID then 0 else 1),
+                            qeCurrentStopID = nextSID,
+                            qePathRouteIDs = nextRID: currentEntry.qePathRouteIDs,
+                            qePathStopIDs = nextSID : currentEntry.qePathStopIDs
+                            } | (nextSID, nextRIDs) <- nextSIDsWithWeights, nextRID <- nextRIDs ]
+                        newQueue = foldr insertFunction queue' newEntries
+                        newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDVisitedAmount + 1) sIDsVisitedAmount
+                    in findKPathsByLength' newQueue newSIDsVisitedAmount currentPaths
 
