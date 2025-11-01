@@ -19,7 +19,6 @@ extra-source-files:
 executable app
   main-is: Main.hs
   other-modules:
-      Dijkstra
       KPath
       Structures
       Paths_bus_map_haskell
