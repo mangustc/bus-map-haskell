@@ -14,6 +14,7 @@ import Debug.Trace (trace)
 
 isPointlessAgainst :: ([RouteID], [StopID]) -> ([RouteID], [StopID]) -> Bool
 isPointlessAgainst (pointlessRIDs, pointlessSIDs) (betterRIDs, betterSIDs) = let bRIDs = nub betterRIDs in
+  -- length (bRIDs `intersect` pointlessRIDs) == length bRIDs && length (betterSIDs `intersect` pointlessSIDs) == length betterSIDs
   length (bRIDs `intersect` pointlessRIDs) == length bRIDs && length pointlessSIDs >= length betterSIDs
 
 findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [([RouteID], [StopID])]
@@ -34,7 +35,7 @@ findKPaths insertFunction graph pathAmount startSID endSID = map (\(rIDs, sIDs) 
           let currentEntry = head queue
               queue' = tail queue
               currentSIDVisitedAmount = Map.findWithDefault 0 currentEntry.qeCurrentStopID sIDsVisitedAmount
-          in if currentSIDVisitedAmount >= pathAmount * 70 || currentEntry.qeTransferCost > 8 || head currentEntry.qePathStopIDs `elem` tail currentEntry.qePathStopIDs
+          in if currentSIDVisitedAmount >= pathAmount * 24
              then findKPathsByLength' queue' sIDsVisitedAmount currentPaths
              else if currentEntry.qeCurrentStopID == endSID
                   then
@@ -46,14 +47,20 @@ findKPaths insertFunction graph pathAmount startSID endSID = map (\(rIDs, sIDs) 
                     in findKPathsByLength' queue' newSIDsVisitedAmount filteredPaths
                   else
                     let nextSIDsWithRIDs = Map.findWithDefault [] currentEntry.qeCurrentStopID graph
+                        headRID = head currentEntry.qePathRouteIDs
                         newEntries = [
                           QueueElement {
                             qeLengthCost = currentEntry.qeLengthCost + 1,
-                            qeTransferCost = currentEntry.qeTransferCost + (if head currentEntry.qePathRouteIDs == nextRID then 0 else 1),
+                            qeTransferCost = nextTransferCost,
                             qeCurrentStopID = nextSID,
                             qePathRouteIDs = nextRID: currentEntry.qePathRouteIDs,
                             qePathStopIDs = nextSID : currentEntry.qePathStopIDs
-                            } | (nextSID, nextRIDs) <- nextSIDsWithRIDs, nextRID <- nextRIDs ]
+                            } | (nextSID, nextRIDs) <- nextSIDsWithRIDs,
+                            nextRID <- nextRIDs,
+                            let nextTransferCost = currentEntry.qeTransferCost + (if headRID == nextRID then 0 else 1),
+                            nextTransferCost <= 8 &&
+                              ((headRID == nextRID) || nextRID `notElem` currentEntry.qePathRouteIDs) &&
+                              nextSID `notElem` currentEntry.qePathStopIDs ]
                         newQueue = foldr insertFunction queue' newEntries
                         newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDVisitedAmount + 1) sIDsVisitedAmount
                     in findKPathsByLength' newQueue newSIDsVisitedAmount currentPaths
