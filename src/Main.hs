@@ -1,6 +1,5 @@
 module Main where
 
-import Dijkstra
 import KPath (
   findKPathsByLength,
   findKPathsByTransfers,
@@ -19,11 +18,13 @@ import Data.List (
   intersect,
   sortBy,
   delete,
+  sort,
   )
 import Data.Maybe (
-  mapMaybe,
+  mapMaybe, fromJust,
   )
 import Data.Array
+import qualified Data.Set as Set
 
 
 getStopByStopID :: [Stop] -> Int -> Stop
@@ -64,43 +65,21 @@ parseLines lines = mapMaybe readMaybe filteredLines
   where
     filteredLines = filter (\l -> not (null l || isPrefixOf "--" l)) lines
 
-
-arcsFromRoutes :: [Route] -> [Arc]
-arcsFromRoutes routes = foldr combineArcs []
-  (concatMap
-    (\r -> zipWith (\ stopID1 stopID2 -> Arc {arcStopID = stopID1, arcStopIDNext = stopID2, arcRoutesIDs = [r.routeID]}) r.routePath (tail r.routePath))
-    routes
-  )
-  where
-    combineArcs :: Arc -> [Arc] -> [Arc]
-    combineArcs arc [] = [arc]
-    combineArcs arc (harc:arcs)
-      | harc.arcStopID == arc.arcStopID && harc.arcStopIDNext == arc.arcStopIDNext = Arc {arcStopID = arc.arcStopID, arcStopIDNext = arc.arcStopIDNext, arcRoutesIDs = harc.arcRoutesIDs ++ arc.arcRoutesIDs} : arcs
-      | otherwise = harc : combineArcs arc arcs
-
-
-
-arcsToAdjMatrix :: [Arc] -> Adjmat
-arcsToAdjMatrix arcs = array bounds assocList
-  where
-    -- Extract all stop IDs
-    stops = nub $ concat [[arcStopID a, arcStopIDNext a] | a <- arcs]
-    -- Define the bounds for the matrix (minStopID, minStopID) to (maxStopID, maxStopID)
-    minStop = minimum stops
-    maxStop = maximum stops
-    bounds = ((minStop, minStop), (maxStop, maxStop))
-
-    -- Create an association list ((source,dest), routeIDs)
-    -- For pairs missing in arcs, default to []
-    assocList = [((i, j), findRoutes i j) | i <- [minStop .. maxStop], j <- [minStop .. maxStop]]
-
-    -- Find route IDs for given i -> j or []
-    findRoutes i j = case filter (\a -> arcStopID a == i && arcStopIDNext a == j) arcs of
-      (Arc _ _ rIDs : _) -> rIDs
-      [] -> []
-
 stopIDsToString :: [Stop] -> [StopID] -> String
 stopIDsToString stops stopIDs = "Путь:\n" ++ intercalate "\n" (map (\sID -> (getStopByStopID stops sID).stopName) stopIDs) ++ "\n"
+
+pathsToCurrentPaths :: [Arc] -> [[StopID]] -> [([RouteID], [StopID])]
+pathsToCurrentPaths arcs paths = map (\path -> convertPath path arcs) paths
+
+convertPath :: [StopID] -> [Arc] -> ([RouteID], [StopID])
+convertPath stops arcs = 
+  let pairs = zip stops (tail stops)
+      routeLists = map (\(s1, s2) -> 
+                        case find (\arc -> arcStopID arc == s1 && arcStopIDNext arc == s2) arcs of
+                          Just arc -> arcRoutesIDs arc
+                          Nothing  -> []) pairs
+      allRoutes = concat routeLists
+  in (allRoutes, stops)
 
 main :: IO ()
 main = do
@@ -116,8 +95,17 @@ main = do
   sanityChecks stops routes
 
   let arcs = arcsFromRoutes routes
-  let mat = arcsToAdjMatrix arcs
+  let graph = arcsToGraph arcs
   -- print arcs
+  -- let paths = findKPathsByLength graph 5 4 6
+  -- let paths = findKPathsByLength graph 5 74 134
+  -- let paths = findKPathsByLength graph 5 99 133
+  -- let paths = findKPathsByTransfers graph 5 4 6
+  -- let paths = findKPathsByTransfers graph 5 74 134
+  let paths = findKPathsByTransfers graph 5 99 133
+  -- let paths = findKPathsByLength graph 5 4 6
+  -- mapM_ print (map (\path -> (length path, path)) paths)
+  -- print (length paths)
 
   -- let paths = dfsPathsMat 74 134 mat
   -- let paths = dfsPaths 74 134 arcs
@@ -126,83 +114,37 @@ main = do
   -- let graph = arcsToGraph arcs
   -- let solution = dijkstra graph 74
   -- let path = pathToNode solution 134
-  -- let paths = findKPathsByLength arcs 500 74 134
-  let paths = findKPathsByTransfers arcs 6 74 134
+  -- let paths = findKPathsByLength arcs 5 4 6
+  -- let paths = findKPathsByTransfers arcs 5 74 134
+  -- let paths = findKPathsByLength arcs 5 1 95
+  -- let paths = pathsToCurrentPaths arcs (findKPathsByTest arcs 5 4 6)
+  -- mapM_ print (map (\(pRIDs, pSIDs) -> (nub pRIDs, pSIDs)) paths)
+  -- mapM_ print (map (\(pRIDs, pSIDs) -> (length (nub pRIDs), length pSIDs)) paths)
+  -- let paths = findKPathsByTransfers arcs 5 4 6
+  -- let paths = findKPathsByLength arcs 5 99 133
+  -- let paths = findKPathsByTransfers arcs 5 99 133
 
+  -- putStrLn (intercalate "\n\n" (map show (map (pathToPathSegments arcs) paths)))
+  -- print paths
   -- mapM_ print (sortBy (\(node1, _) (node2, _) -> compare node1 node2) solution)
   -- mapM_ print (sortBy (\(_, (_, node1)) (_, (_, node2)) -> compare node1 node2) solution)
   -- mapM_ print (dnodeForNode solution 121)
   -- print path
 
+  -- print (Set.fromList [8,3] `Set.isSubsetOf` Set.fromList [8,3,6])
   -- print ([3,6,2] `elem` map fst [([6,2], []),([3,6,2], [])])
   -- putStrLn (concatMap (const "") paths)
   -- mapM_ print (take 10 arcs)
   -- print (leastTransfers (map arcRoutesIDs (take 10 arcs)))
   -- print (leastTransfers [[27,33],[27],[27,29],[29,11]])
   -- print (leastTransfers [[27], [11]])
-  mapM_ print paths
+  -- mapM_ print paths
+  -- mapM_ print paths
+  mapM_ print (map (\(pRIDs, pSIDs) -> (nub pRIDs, pSIDs)) paths)
+  mapM_ print (map (\(pRIDs, pSIDs) -> (length (nub pRIDs), length pSIDs)) paths)
   -- mapM_ print (map length paths)
   -- mapM_ putStrLn (map (stopIDsToString stops) paths)
   -- print (length paths)
   -- print (map (const "1") paths)
   -- print ([1..1000000000])
   -- mapM_ print (map (\path -> hasDuplicates (map (\arc -> arc.arcStopID) path)) paths)
-
---
---
--- import Control.Lens
--- import Data.Maybe
--- import Data.Text (Text)
--- import Monomer
--- import TextShow
---
--- import qualified Monomer.Lens as L
---
--- newtype AppModel = AppModel {
---   _clickCount :: Int
--- } deriving (Eq, Show)
---
--- data AppEvent
---   = AppInit
---   | AppIncrease
---   deriving (Eq, Show)
---
--- makeLenses 'AppModel
---
--- buildUI
---   :: WidgetEnv AppModel AppEvent
---   -> AppModel
---   -> WidgetNode AppModel AppEvent
--- buildUI wenv model = widgetTree where
---   widgetTree = vstack [
---       label "Hello world",
---       spacer,
---       hstack [
---         label $ "Click count: " <> showt (model ^. clickCount),
---         spacer,
---         button "Increase count" AppIncrease
---       ]
---     ] `styleBasic` [padding 10]
---
--- handleEvent
---   :: WidgetEnv AppModel AppEvent
---   -> WidgetNode AppModel AppEvent
---   -> AppModel
---   -> AppEvent
---   -> [AppEventResponse AppModel AppEvent]
--- handleEvent wenv node model evt = case evt of
---   AppInit -> []
---   AppIncrease -> [Model (model & clickCount +~ 1)]
---
--- main :: IO ()
--- main = do
---   startApp model handleEvent buildUI config
---   where
---     config = [
---       appWindowTitle "Hello world",
---       appWindowIcon "./assets/images/icon.png",
---       appTheme lightTheme,
---       appFontDef "Regular" "./assets/fonts/Roboto-Regular.ttf",
---       appInitEvent AppInit
---       ]
---     model = AppModel 0
