@@ -122,7 +122,9 @@ mainLoop = do
           newStopIDString <- liftIO $ getLineWithString "Введите номер остановки: "
           case readMaybe newStopIDString of
             Just maybeStopID -> case find (\stop -> stop.stopID == maybeStopID) cliState.clisStops of
-                                  Just _ -> modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisStartStopID = maybeStopID})
+                                  Just _ -> case stopType of
+                                    StopTypeStartStop -> modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisStartStopID = maybeStopID})
+                                    StopTypeEndStop -> modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisEndStopID = maybeStopID})
                                   Nothing -> modify (\clis -> clis {clisMessage = "Несуществующий номер автобуса: " ++ newStopIDString})
             Nothing -> modify (\clis -> clis {clisMessage = "Несуществующий номер автобуса: " ++ newStopIDString})
         'Q' -> do
