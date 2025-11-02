@@ -8,9 +8,11 @@ import KPath (
   )
 import Structures
 import Control.Monad.State
-import Data.List (find, intercalate)
+import Data.List (find, intercalate, isInfixOf)
 import Data.Maybe (fromMaybe)
+import Text.Read (readMaybe)
 import System.IO
+import System.Exit
 
 -- data AppState = AppState {
 --     r
@@ -25,11 +27,15 @@ data CLIFilterType =
   FilterByLength |
   FilterByTarnsfers
   deriving (Show, Read)
+data CLIStopSelectionStopType =
+  StopTypeStartStop |
+  StopTypeEndStop
+  deriving (Show, Read)
 data CLIScreen =
-  RouteSelection |
-  MainMenu |
-  StopSelection |
-  PathResults
+  CLIScreenRouteSelection |
+  CLIScreenMainMenu |
+  CLIScreenStopSelection CLIStopSelectionStopType String |
+  CLIScreenPathResults [Path] CLIFilterType
   deriving (Show, Read)
 data CLIState where
   CLIState :: {
@@ -39,8 +45,6 @@ data CLIState where
     clisStartStopID :: StopID,
     clisEndStopID :: StopID,
     clisSelectedRouteIDs :: [RouteID],
-    clisFilterType :: CLIFilterType,
-    clisPaths :: [Path],
     clisScreen :: CLIScreen,
     clisMessage :: String
   } -> CLIState
@@ -53,49 +57,82 @@ getStopIDName stops sID
   | sID == 0 = "Не выбрано"
   | otherwise = (getStopByStopID stops sID).stopName
 
-getCharNoNewline :: IO Char
-getCharNoNewline = do
+getCharNoNewline :: String -> IO Char
+getCharNoNewline str = do
+  putStr str
+  hFlush stdout
   oldBuffering <- hGetBuffering stdin
-  oldEcho <- hGetEcho stdin
   hSetBuffering stdin NoBuffering
-  hSetEcho stdin False
   c <- getChar
   hSetBuffering stdin oldBuffering
-  hSetEcho stdin oldEcho
+  putStrLn ""
   return c
+
+getLineWithString :: String -> IO String
+getLineWithString str = do
+  putStr str
+  hFlush stdout
+  getLine
 
 mainLoop :: CLIApp ()
 mainLoop = do
   cliState <- get
   case cliState.clisScreen of
-    MainMenu -> do
+    CLIScreenMainMenu -> do
+      liftIO $ putStrLn "Главное меню:\n"
       liftIO $ putStrLn ("Путь: " ++ getStopIDName cliState.clisStops cliState.clisStartStopID ++ " -> " ++ getStopIDName cliState.clisStops cliState.clisEndStopID)
-      liftIO $ putStrLn ("Маршруты: " ++ if null cliState.clisSelectedRouteIDs then "Все" else intercalate ", " (map (\rID -> (getRouteByRouteID cliState.clisRoutes rID).routeName) cliState.clisSelectedRouteIDs))
+      liftIO $ putStrLn ("Маршруты: " ++ if null cliState.clisSelectedRouteIDs then "Все" else intercalate ", " (map (\rID -> (getRouteByRouteID cliState.clisRoutes rID).routeName) cliState.clisSelectedRouteIDs) ++ "\n")
       liftIO $ putStrLn "1. Выбрать начальную остановку."
       liftIO $ putStrLn "2. Выбрать конечную остановку."
       liftIO $ putStrLn "3. Выбрать маршруты."
       liftIO $ putStrLn "4. Найти пути."
       liftIO $ putStrLn "Q. Выйти из программы."
 
-      choice <- liftIO getCharNoNewline
+      choice <- liftIO $ getCharNoNewline "Выберите вариант: "
       case choice of
         '1' -> do
-          modify (\clis -> clis {clisScreen = RouteSelection})
+          modify (\clis -> clis {clisScreen = CLIScreenStopSelection StopTypeStartStop ""})
         '2' -> do
-          modify (\clis -> clis {clisScreen = RouteSelection})
+          modify (\clis -> clis {clisScreen = CLIScreenStopSelection StopTypeEndStop ""})
         '3' -> do
-          modify (\clis -> clis {clisScreen = RouteSelection})
+          modify (\clis -> clis {clisScreen = CLIScreenRouteSelection})
         '4' -> do
-          modify (\clis -> clis {clisScreen = RouteSelection})
+          modify (\clis -> clis {clisScreen = CLIScreenRouteSelection})
         'Q' -> do
-          modify (\clis -> clis {clisScreen = RouteSelection})
+          liftIO exitSuccess
         'q' -> do
-          modify (\clis -> clis {clisScreen = RouteSelection})
-        '_' -> do
-          modify (\clis -> clis {clisScreen = RouteSelection})
-    RouteSelection -> liftIO $ print "Route selection"
-    StopSelection -> liftIO $ print "Stop Selection"
-    PathResults -> liftIO $ print "Path Results"
+          liftIO exitSuccess
+        _ -> do
+          modify (\clis -> clis {clisMessage = "Несуществующий вариант: " ++ (choice : "")})
+    CLIScreenStopSelection stopType filterName -> do
+      liftIO $ putStrLn "Выбор остановки:\n"
+      liftIO $ putStrLn (intercalate "\n" (map (\stop -> show stop.stopID ++ ". " ++ stop.stopName) (filter (\stop -> filterName `isInfixOf` stop.stopName) cliState.clisStops)) ++ "\n")
+      liftIO $ putStrLn "1. Отфильтровать по названию."
+      liftIO $ putStrLn "2. Сбросить фильтр."
+      liftIO $ putStrLn "3. Выбрать номер остановки."
+      liftIO $ putStrLn "Q. Вернуться в меню."
+      choice <- liftIO $ getCharNoNewline "Выберите вариант: "
+      case choice of
+        '1' -> do
+          newFilterName <- liftIO $ getLineWithString "Введите запрос: "
+          modify (\clis -> clis {clisScreen = CLIScreenStopSelection stopType newFilterName})
+        '2' -> do
+          modify (\clis -> clis {clisScreen = CLIScreenStopSelection stopType ""})
+        '3' -> do
+          newStopIDString <- liftIO $ getLineWithString "Введите номер остановки: "
+          case readMaybe newStopIDString of
+            Just maybeStopID -> case find (\stop -> stop.stopID == maybeStopID) cliState.clisStops of
+                                  Just _ -> modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisStartStopID = maybeStopID})
+                                  Nothing -> modify (\clis -> clis {clisMessage = "Несуществующий номер автобуса: " ++ newStopIDString})
+            Nothing -> modify (\clis -> clis {clisMessage = "Несуществующий номер автобуса: " ++ newStopIDString})
+        'Q' -> do
+          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
+        'q' -> do
+          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
+        _ -> do
+          modify (\clis -> clis {clisMessage = "Несуществующий вариант: " ++ (choice : "")})
+    CLIScreenRouteSelection -> liftIO $ print "Route selection"
+    CLIScreenPathResults paths filterBy -> liftIO $ print "Path Results"
   mainLoop
 
 cliProcess :: [Stop] -> [Route] -> IO ()
@@ -110,9 +147,7 @@ cliProcess stops routes = do
     clisStartStopID = 0,
     clisEndStopID = 0,
     clisSelectedRouteIDs = [],
-    clisFilterType = FilterByLength,
-    clisPaths = [],
-    clisScreen = MainMenu,
+    clisScreen = CLIScreenMainMenu,
     clisMessage = ""
     }
 
