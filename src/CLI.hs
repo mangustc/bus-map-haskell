@@ -8,20 +8,12 @@ import KPath (
   )
 import Structures
 import Control.Monad.State
-import Data.List (find, intercalate, isInfixOf)
+import Data.List (find, intercalate, isInfixOf, nub)
 import Data.Maybe (fromMaybe)
 import Text.Read (readMaybe)
 import System.IO
 import System.Exit
-
--- data AppState = AppState {
---     r
---     selectedRoutes :: [RouteID]
---     , startStopSelected :: Maybe Stop
---     , endStopSelected :: Maybe Stop
---     , allStops :: [Stop]
---     , currentFilter :: Maybe String
---     } deriving (Show)
+import Debug.Trace (trace)
 
 data CLIFilterType =
   FilterByLength |
@@ -74,6 +66,14 @@ getLineWithString str = do
   hFlush stdout
   getLine
 
+split :: Char -> String -> [String]
+split _ [] = [""]
+split delim (c:cs)
+  | c == delim = "" : split delim cs
+  | otherwise  = (c : head rest) : tail rest
+  where
+    rest = split delim cs
+
 mainLoop :: CLIApp ()
 mainLoop = do
   cliState <- get
@@ -88,6 +88,8 @@ mainLoop = do
       liftIO $ putStrLn "4. Найти пути."
       liftIO $ putStrLn "Q. Выйти из программы."
 
+      liftIO $ putStr cliState.clisMessage
+      modify (\clis -> clis {clisMessage = ""})
       choice <- liftIO $ getCharNoNewline "Выберите вариант: "
       case choice of
         '1' -> do
@@ -103,7 +105,7 @@ mainLoop = do
         'q' -> do
           liftIO exitSuccess
         _ -> do
-          modify (\clis -> clis {clisMessage = "Несуществующий вариант: " ++ (choice : "")})
+          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice : "") ++ "\n"})
     CLIScreenStopSelection stopType filterName -> do
       liftIO $ putStrLn "Выбор остановки:\n"
       liftIO $ putStrLn (intercalate "\n" (map (\stop -> show stop.stopID ++ ". " ++ stop.stopName) (filter (\stop -> filterName `isInfixOf` stop.stopName) cliState.clisStops)) ++ "\n")
@@ -111,6 +113,9 @@ mainLoop = do
       liftIO $ putStrLn "2. Сбросить фильтр."
       liftIO $ putStrLn "3. Выбрать номер остановки."
       liftIO $ putStrLn "Q. Вернуться в меню."
+
+      liftIO $ putStr cliState.clisMessage
+      modify (\clis -> clis {clisMessage = ""})
       choice <- liftIO $ getCharNoNewline "Выберите вариант: "
       case choice of
         '1' -> do
@@ -125,15 +130,33 @@ mainLoop = do
                                   Just _ -> case stopType of
                                     StopTypeStartStop -> modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisStartStopID = maybeStopID})
                                     StopTypeEndStop -> modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisEndStopID = maybeStopID})
-                                  Nothing -> modify (\clis -> clis {clisMessage = "Несуществующий номер автобуса: " ++ newStopIDString})
-            Nothing -> modify (\clis -> clis {clisMessage = "Несуществующий номер автобуса: " ++ newStopIDString})
+                                  Nothing -> modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий номер остановки: " ++ newStopIDString ++ "\n"})
+            Nothing -> modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий номер остановки: " ++ newStopIDString ++ "\n"})
         'Q' -> do
           modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
         'q' -> do
           modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
         _ -> do
-          modify (\clis -> clis {clisMessage = "Несуществующий вариант: " ++ (choice : "")})
-    CLIScreenRouteSelection -> liftIO $ print "Route selection"
+          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice : "") ++ "\n"})
+    CLIScreenRouteSelection -> do
+      liftIO $ putStrLn "Выбор маршрутов:\n"
+      liftIO $ putStrLn (intercalate "\n" (map (\route -> show route.routeID ++ ". " ++ route.routeName) cliState.clisRoutes) ++ "\n")
+
+      liftIO $ putStr cliState.clisMessage
+      modify (\clis -> clis {clisMessage = ""})
+      newRIDsLine <- liftIO $ getLineWithString "Введите номер маршрутов через запятую (Например: \"1,2,3\" или оставить пустым для всех маршрутов): "
+      newRIDs <- mapM (\rIDMaybe -> case readMaybe rIDMaybe of
+                          Just rID -> case find (\route -> route.routeID == rID) cliState.clisRoutes of
+                                        Just _ -> return rID
+                                        Nothing -> do
+                                          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий номер автобуса: " ++ rIDMaybe ++ "\n"})
+                                          return 0
+                          Nothing -> do
+                            modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий номер автобуса: " ++ rIDMaybe ++ "\n"})
+                            return 0
+        ) (filter (/= "") (split ',' (filter (/= '\n') newRIDsLine)))
+      if 0 `notElem` newRIDs then modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisSelectedRouteIDs = newRIDs}) else modify (\clis -> clis {clisScreen = CLIScreenRouteSelection})
+
     CLIScreenPathResults paths filterBy -> liftIO $ print "Path Results"
   mainLoop
 

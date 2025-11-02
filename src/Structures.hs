@@ -33,7 +33,7 @@ instance Show Route where
   show (Route { routeID = rID, routeName = rName, routePath = rPath}) = "Автобус\n\tНазвание: " ++ rName ++ "\n\tПуть: " ++ show rPath
 
 getRouteByRouteID :: [Route] -> RouteID -> Route
-getRouteByRouteID routes rID = fromMaybe (error "should not be possible") (find (\route -> route.routeID == rID) routes)
+getRouteByRouteID routes rID = fromMaybe (error ("should not be possible: " ++ show rID)) (find (\route -> route.routeID == rID) routes)
 
 
 type PathID = Int
