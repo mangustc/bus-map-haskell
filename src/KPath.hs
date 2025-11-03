@@ -8,7 +8,7 @@ module KPath
 import Structures
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Data.List (insertBy, intersect, nub)
+import Data.List (insertBy, intersect, nub, sortBy)
 import Data.Ord (comparing)
 import Debug.Trace (trace)
 
@@ -17,10 +17,16 @@ isPointlessAgainst pointlessQE betterQE = let bRIDs = nub betterQE.qePathRouteID
   length (bRIDs `intersect` pointlessQE.qePathRouteIDs) == betterQE.qeTransferCost + 1 && pointlessQE.qeLengthCost >= betterQE.qeLengthCost
 
 findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [Path]
-findKPathsByLength graph pathAmount startSID endSID = map queueElementToPath (findKPaths insertSortedByLength graph pathAmount startSID endSID)
+findKPathsByLength graph pathAmount startSID endSID = map queueElementToPath
+  (take pathAmount
+    (sortBy (\qe1 qe2 -> comparing qeLengthCost qe1 qe2 <> comparing qeTransferCost qe1 qe2)
+      (findKPaths insertSortedByLength graph pathAmount startSID endSID ++ findKPaths insertSortedByTransfers graph pathAmount startSID endSID)))
 
 findKPathsByTransfers :: Graph -> Int -> StopID -> StopID -> [Path]
-findKPathsByTransfers graph pathAmount startSID endSID = map queueElementToPath (findKPaths insertSortedByTransfers graph pathAmount startSID endSID)
+findKPathsByTransfers graph pathAmount startSID endSID = map queueElementToPath
+  (take pathAmount
+    (sortBy (\qe1 qe2 -> comparing qeTransferCost qe1 qe2 <> comparing qeLengthCost qe1 qe2)
+      (findKPaths insertSortedByTransfers graph pathAmount startSID endSID ++ findKPaths insertSortedByLength graph pathAmount startSID endSID)))
 
 findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [QueueElement]
 findKPaths insertFunction graph pathAmount startSID endSID = map (\qe -> qe {qePathRouteIDs = tail (reverse qe.qePathRouteIDs), qePathStopIDs = reverse qe.qePathStopIDs}) $ reverse (findKPathsByLength' [QueueElement {qeLengthCost = 0, qeTransferCost = 0, qeCurrentStopID = startSID, qePathRouteIDs = [0], qePathStopIDs = [startSID]}] Map.empty [])
