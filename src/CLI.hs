@@ -233,8 +233,7 @@ mainLoop = do
 
 cliProcess :: [Stop] -> [Route] -> IO ()
 cliProcess stops routes = do
-  let arcs = arcsFromRoutes routes
-  let graph = arcsToGraph arcs
+  let graph = edgesToGraph (edgesFromRoutes routes)
 
   let cliState = CLIState {
     clisStops = stops,

@@ -47,18 +47,6 @@ data Path where
   } -> Path
   deriving (Read, Show)
 
-data Arc where
-  Arc :: {
-    arcStopID :: StopID,
-    arcStopIDNext :: StopID,
-    arcRoutesIDs :: [RouteID]
-  } -> Arc
-  deriving (Read, Ord)
-instance Show Arc where
-  show (Arc { arcStopID = sID1, arcStopIDNext = sID2, arcRoutesIDs = rIDs}) = show sID1 ++ "-" ++ show rIDs ++ "->" ++ show sID2
-instance Eq Arc where
-  Arc { arcStopID = sID1, arcStopIDNext = sIDNext1, arcRoutesIDs = rIDs1} == Arc { arcStopID = sID2, arcStopIDNext = sIDNext2, arcRoutesIDs = rIDs2} = sID1 == sID2 && sIDNext1 == sIDNext2
-
 type Edge = (StopID, StopID, [RouteID])
 type Graph = Map.Map StopID [(StopID, [RouteID])]
 type Weight = Int
@@ -73,31 +61,31 @@ data QueueElement where
   deriving (Read, Show)
 
 
-arcsFromRoutes :: [Route] -> [Arc]
-arcsFromRoutes routes = foldr combineArcs []
+edgesFromRoutes :: [Route] -> [Edge]
+edgesFromRoutes routes = foldr combineEdges []
   (concatMap
-    (\r -> zipWith (\ stopID1 stopID2 -> Arc {arcStopID = stopID1, arcStopIDNext = stopID2, arcRoutesIDs = [r.routeID]}) r.routePath (tail r.routePath))
+    (\r -> zipWith (\ stopID1 stopID2 -> (stopID1, stopID2, [r.routeID])) r.routePath (tail r.routePath))
     routes
   )
   where
-    combineArcs :: Arc -> [Arc] -> [Arc]
-    combineArcs arc [] = [arc]
-    combineArcs arc (harc:arcs)
-      | harc.arcStopID == arc.arcStopID && harc.arcStopIDNext == arc.arcStopIDNext = Arc {arcStopID = arc.arcStopID, arcStopIDNext = arc.arcStopIDNext, arcRoutesIDs = harc.arcRoutesIDs ++ arc.arcRoutesIDs} : arcs
-      | otherwise = harc : combineArcs arc arcs
+    combineEdges :: Edge -> [Edge] -> [Edge]
+    combineEdges edge [] = [edge]
+    combineEdges edge@(sID, sIDNext, rIDs) (hedge@(hsID, hsIDNext, hrIDs):edges)
+      | hsID == sID && hsIDNext == sIDNext = (sID, sIDNext, hrIDs ++ rIDs) : edges
+      | otherwise = hedge : combineEdges edge edges
 
-arcsToGraph :: [Arc] -> Graph
-arcsToGraph arcs = foldr (insertEdge . (\arc -> (arc.arcStopID, arc.arcStopIDNext, arc.arcRoutesIDs))) Map.empty arcs
+edgesToGraph :: [Edge] -> Graph
+edgesToGraph = foldr insertEdge Map.empty
 
 -- Insert an edge into a graph
 insertEdge :: Edge -> Graph -> Graph
-insertEdge (u,v,w) graph  = Map.insertWith (++) u [(v,w)] graph
+insertEdge (u,v,w) = Map.insertWith (++) u [(v,w)]
 
 insertSortedByLength :: QueueElement -> [QueueElement] -> [QueueElement]
-insertSortedByLength newEntry queue = insertBy (\qe1 qe2 -> comparing qeLengthCost qe1 qe2 <> comparing qeTransferCost qe1 qe2) newEntry queue
+insertSortedByLength = insertBy (\qe1 qe2 -> comparing qeLengthCost qe1 qe2 <> comparing qeTransferCost qe1 qe2)
 
 insertSortedByTransfers :: QueueElement -> [QueueElement] -> [QueueElement]
-insertSortedByTransfers newEntry queue = insertBy (\qe1 qe2 -> comparing qeTransferCost qe1 qe2 <> comparing qeLengthCost qe1 qe2) newEntry queue
+insertSortedByTransfers = insertBy (\qe1 qe2 -> comparing qeTransferCost qe1 qe2 <> comparing qeLengthCost qe1 qe2)
 
 queueElementToPath :: QueueElement -> Path
 queueElementToPath qe = Path {
