@@ -16,11 +16,11 @@ isPointlessAgainst :: QueueElement -> QueueElement -> Bool
 isPointlessAgainst pointlessQE betterQE = let bRIDs = nub betterQE.qePathRouteIDs in
   length (bRIDs `intersect` pointlessQE.qePathRouteIDs) == betterQE.qeTransferCost + 1 && pointlessQE.qeLengthCost >= betterQE.qeLengthCost
 
-findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [QueueElement]
-findKPathsByLength = findKPaths insertSortedByLength
+findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [Path]
+findKPathsByLength graph pathAmount startSID endSID = map queueElementToPath (findKPaths insertSortedByLength graph pathAmount startSID endSID)
 
-findKPathsByTransfers :: Graph -> Int -> StopID -> StopID -> [QueueElement]
-findKPathsByTransfers = findKPaths insertSortedByTransfers
+findKPathsByTransfers :: Graph -> Int -> StopID -> StopID -> [Path]
+findKPathsByTransfers graph pathAmount startSID endSID = map queueElementToPath (findKPaths insertSortedByTransfers graph pathAmount startSID endSID)
 
 findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [QueueElement]
 findKPaths insertFunction graph pathAmount startSID endSID = map (\qe -> qe {qePathRouteIDs = tail (reverse qe.qePathRouteIDs), qePathStopIDs = reverse qe.qePathStopIDs}) $ reverse (findKPathsByLength' [QueueElement {qeLengthCost = 0, qeTransferCost = 0, qeCurrentStopID = startSID, qePathRouteIDs = [0], qePathStopIDs = [startSID]}] Map.empty [])

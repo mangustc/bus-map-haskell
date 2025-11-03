@@ -14,20 +14,23 @@ import Text.Read (readMaybe)
 import System.IO
 import System.Exit
 import Debug.Trace (trace)
+import qualified Data.Map as Map
 
-data CLIFilterType =
-  FilterByLength |
-  FilterByTarnsfers
+data CLISortType where
+  SortByLength :: CLISortType
+  SortByTransfers :: CLISortType
   deriving (Show, Read)
-data CLIStopSelectionStopType =
-  StopTypeStartStop |
-  StopTypeEndStop
+data CLIStopSelectionStopType where
+  StopTypeStartStop :: CLIStopSelectionStopType
+  StopTypeEndStop :: CLIStopSelectionStopType
   deriving (Show, Read)
-data CLIScreen =
-  CLIScreenRouteSelection |
-  CLIScreenMainMenu |
-  CLIScreenStopSelection CLIStopSelectionStopType String |
-  CLIScreenPathResults [Path] CLIFilterType
+data CLIScreen where
+  CLIScreenRouteSelection :: CLIScreen
+  CLIScreenMainMenu :: CLIScreen
+  CLIScreenStopSelection :: CLIStopSelectionStopType ->
+                              String ->
+                              CLIScreen
+  CLIScreenPathResults :: [Path] -> CLISortType -> CLIScreen
   deriving (Show, Read)
 data CLIState where
   CLIState :: {
@@ -43,6 +46,9 @@ data CLIState where
   deriving (Read, Show)
 
 type CLIApp = StateT CLIState IO
+
+pathAmount :: Int
+pathAmount = 5
 
 getStopIDName :: [Stop] -> StopID -> StopName
 getStopIDName stops sID
@@ -74,9 +80,40 @@ split delim (c:cs)
   where
     rest = split delim cs
 
+-- Filter graph's routes by allowed routes list
+filterGraphRoutes :: [RouteID] -> Graph -> Graph
+filterGraphRoutes allowedRoutes = Map.map (filterNonEmpty . map filterEdgeRoutes)
+  where
+    filterEdgeRoutes :: (StopID, [RouteID]) -> (StopID, [RouteID])
+    filterEdgeRoutes (stop, routes) =
+      (stop, filter (`elem` allowedRoutes) routes)
+    filterNonEmpty :: [(StopID, [RouteID])] -> [(StopID, [RouteID])]
+    filterNonEmpty = filter (\(_, routes) -> not (null routes))
+
+
+pathToConsiseString :: [Stop] -> [Route] -> Path -> String
+pathToConsiseString stops routes path = segsToString path.pathConciseSegments
+  where
+    getRouteLine :: PathSegment -> String
+    getRouteLine seg@(rID, _, _) = if seg `elem` path.pathFullSegments
+                           then "--" ++ (getRouteByRouteID routes rID).routeName ++ "-->"
+                           else "-...-" ++ (getRouteByRouteID routes rID).routeName ++ "-...->"
+    segsToString :: [PathSegment] -> String
+    segsToString [] = []
+    segsToString [hseg@(_, sID, sIDNext)] = (getStopByStopID stops sID).stopName ++ " " ++ getRouteLine hseg ++ " " ++ (getStopByStopID stops sIDNext).stopName
+    segsToString (hseg@(_, sID, _):tseg) = (getStopByStopID stops sID).stopName ++ " " ++ getRouteLine hseg ++ " " ++ segsToString tseg
+
+getPathsBySortType :: Graph -> StopID -> StopID -> CLISortType -> [RouteID] -> [Path]
+getPathsBySortType graph startSID endSID sortType selectedRIDs = (case sortType of
+                                                                       SortByLength -> findKPathsByLength
+                                                                       SortByTransfers -> findKPathsByTransfers) filteredGraph pathAmount startSID endSID
+  where
+    filteredGraph = if null selectedRIDs then graph else filterGraphRoutes selectedRIDs graph
+
 mainLoop :: CLIApp ()
 mainLoop = do
   cliState <- get
+  liftIO $ putStr "\ESC[2J"
   case cliState.clisScreen of
     CLIScreenMainMenu -> do
       liftIO $ putStrLn "Главное меню:\n"
@@ -99,7 +136,9 @@ mainLoop = do
         '3' -> do
           modify (\clis -> clis {clisScreen = CLIScreenRouteSelection})
         '4' -> do
-          modify (\clis -> clis {clisScreen = CLIScreenRouteSelection})
+          if cliState.clisStartStopID == 0 || cliState.clisEndStopID == 0
+          then modify (\clis -> clis {clisMessage = "\nНевозможно найти пути: необходимо выбрать начальную и конечную остановки.\n"})
+          else modify (\clis -> clis {clisScreen = CLIScreenPathResults (getPathsBySortType cliState.clisGraph cliState.clisStartStopID cliState.clisEndStopID SortByLength cliState.clisSelectedRouteIDs) SortByLength})
         'Q' -> do
           liftIO exitSuccess
         'q' -> do
@@ -157,7 +196,39 @@ mainLoop = do
         ) (filter (/= "") (split ',' (filter (/= '\n') newRIDsLine)))
       if 0 `notElem` newRIDs then modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisSelectedRouteIDs = newRIDs}) else modify (\clis -> clis {clisScreen = CLIScreenRouteSelection})
 
-    CLIScreenPathResults paths filterBy -> liftIO $ print "Path Results"
+    CLIScreenPathResults paths sortBy -> do
+      liftIO $ putStrLn ("Пути (по " ++ case sortBy of
+                                         SortByLength -> "длине пути"
+                                         SortByTransfers -> "количеству пересадок"
+                                     ++ "):")
+      liftIO $ putStrLn (intercalate "\n" (map (\(position, path) -> show position ++ ". " ++ show path.pathLength ++ " остановок, " ++ show path.pathTransferAmount ++ " пересадок. " ++ pathToConsiseString cliState.clisStops cliState.clisRoutes path ++ ".") (zip [1,2..] paths)) ++ "\n")
+      liftIO $ putStrLn ("1. Сортировать пути по " ++ case sortBy of
+                                                        SortByLength -> "количеству пересадок"
+                                                        SortByTransfers -> "длине пути"
+                                                   ++ ".")
+      liftIO $ putStrLn "Q. Вернуться в меню."
+
+      liftIO $ putStr cliState.clisMessage
+      modify (\clis -> clis {clisMessage = ""})
+      choice <- liftIO $ getCharNoNewline "Выберите вариант: "
+      case choice of
+        '1' -> do
+          let newSortBy = case sortBy of
+                            SortByLength -> SortByTransfers
+                            SortByTransfers -> SortByLength
+          modify (\clis -> clis {clisScreen = CLIScreenPathResults (getPathsBySortType
+                                                                      cliState.clisGraph
+                                                                      cliState.clisStartStopID
+                                                                      cliState.clisEndStopID
+                                                                      newSortBy
+                                                                      cliState.clisSelectedRouteIDs
+                                                                      ) newSortBy})
+        'Q' -> do
+          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
+        'q' -> do
+          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
+        _ -> do
+          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice : "") ++ "\n"})
   mainLoop
 
 cliProcess :: [Stop] -> [Route] -> IO ()
