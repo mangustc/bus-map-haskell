@@ -10,7 +10,43 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.List (insertBy, intersect, nub, sortBy, nubBy)
 import Data.Ord (comparing)
-import Debug.Trace (trace)
+
+type Weight = Int
+data QueueElement where
+  QueueElement :: {
+    qeTransferCost :: Weight,
+    qeLengthCost :: Weight,
+    qeCurrentStopID :: StopID,
+    qePathStopIDs :: [StopID],
+    qePathRouteIDs :: [RouteID]
+  } -> QueueElement
+  deriving (Read, Show)
+
+insertSortedByLength :: QueueElement -> [QueueElement] -> [QueueElement]
+insertSortedByLength = insertBy (\qe1 qe2 -> comparing qeLengthCost qe1 qe2 <> comparing qeTransferCost qe1 qe2)
+
+insertSortedByTransfers :: QueueElement -> [QueueElement] -> [QueueElement]
+insertSortedByTransfers = insertBy (\qe1 qe2 -> comparing qeTransferCost qe1 qe2 <> comparing qeLengthCost qe1 qe2)
+
+queueElementToPath :: QueueElement -> Path
+queueElementToPath qe = Path {
+  pathLength = qe.qeLengthCost,
+  pathTransferAmount = qe.qeTransferCost - 1,
+  pathFullSegments = zipWith (\rID (sID, sIDNext) -> (rID, sID, sIDNext)) qe.qePathRouteIDs (zip qe.qePathStopIDs (tail qe.qePathStopIDs)),
+  pathConciseSegments = getConciseSegments fullSegs
+  }
+  where
+    getConciseSegments :: [PathSegment] -> [PathSegment]
+    getConciseSegments [] = []
+    getConciseSegments [hps] = [hps]
+    getConciseSegments (hps@(hRID, hSID, hSIDNext):tps)
+      | nRID == hRID = (hRID, hSID, nSIDNext) : tail next
+      | otherwise = hps : next
+      where
+        next = getConciseSegments tps
+        (nRID,nSID,nSIDNext) = head next
+
+    fullSegs = zipWith (\rID (sID, sIDNext) -> (rID, sID, sIDNext)) qe.qePathRouteIDs (zip qe.qePathStopIDs (tail qe.qePathStopIDs))
 
 isPointlessAgainst :: QueueElement -> QueueElement -> Bool
 isPointlessAgainst pointlessQE betterQE = let bRIDs = nub betterQE.qePathRouteIDs in

@@ -13,7 +13,6 @@ import Data.Maybe (fromMaybe)
 import Text.Read (readMaybe)
 import System.IO
 import System.Exit
-import Debug.Trace (trace)
 import qualified Data.Map as Map
 
 data CLISortType where
@@ -44,7 +43,6 @@ data CLIState where
     clisMessage :: String
   } -> CLIState
   deriving (Read, Show)
-
 type CLIApp = StateT CLIState IO
 
 pathAmount :: Int
@@ -233,6 +231,7 @@ mainLoop = do
 
 cliProcess :: [Stop] -> [Route] -> IO ()
 cliProcess stops routes = do
+  liftIO $ putStr "\ESC[2J"
   let graph = edgesToGraph (edgesFromRoutes routes)
 
   let cliState = CLIState {
