@@ -89,8 +89,8 @@ filterGraphRoutes allowedRoutes = Map.map (filterNonEmpty . map filterEdgeRoutes
     filterNonEmpty = filter (\(_, routes) -> not (null routes))
 
 
-pathToConsiseString :: [Stop] -> [Route] -> Path -> String
-pathToConsiseString stops routes path = segsToString path.pathConciseSegments
+pathToConciseString :: [Stop] -> [Route] -> Path -> String
+pathToConciseString stops routes path = segsToString path.pathConciseSegments
   where
     getRouteLine :: PathSegment -> String
     getRouteLine seg@(rID, _, _) = if seg `elem` path.pathFullSegments
@@ -199,7 +199,7 @@ mainLoop = do
                                          SortByLength -> "длине пути"
                                          SortByTransfers -> "количеству пересадок"
                                      ++ "):")
-      liftIO $ putStrLn (intercalate "\n" (map (\(position, path) -> show position ++ ". " ++ show path.pathLength ++ " остановок, " ++ show path.pathTransferAmount ++ " пересадок. " ++ pathToConsiseString cliState.clisStops cliState.clisRoutes path ++ ".") (zip [1,2..] paths)) ++ "\n")
+      liftIO $ putStrLn (intercalate "\n" (map (\(position, path) -> show position ++ ". " ++ show path.pathLength ++ " остановок, " ++ show path.pathTransferAmount ++ " пересадок. " ++ pathToConciseString cliState.clisStops cliState.clisRoutes path ++ ".") (zip [1,2..] paths)) ++ "\n")
       liftIO $ putStrLn ("1. Сортировать пути по " ++ case sortBy of
                                                         SortByLength -> "количеству пересадок"
                                                         SortByTransfers -> "длине пути"
