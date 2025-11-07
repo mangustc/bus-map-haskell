@@ -14,6 +14,7 @@ import Text.Read (readMaybe)
 import System.IO
 import System.Exit
 import qualified Data.Map as Map
+import Data.Char (toLower)
 
 data CLISortType where
   SortByLength :: CLISortType
@@ -53,17 +54,6 @@ getStopIDName stops sID
   | sID == 0 = "Не выбрано"
   | otherwise = (getStopByStopID stops sID).stopName
 
-getCharNoNewline :: String -> IO Char
-getCharNoNewline str = do
-  putStr str
-  hFlush stdout
-  oldBuffering <- hGetBuffering stdin
-  hSetBuffering stdin NoBuffering
-  c <- getChar
-  hSetBuffering stdin oldBuffering
-  putStrLn ""
-  return c
-
 getLineWithString :: String -> IO String
 getLineWithString str = do
   putStr str
@@ -78,7 +68,7 @@ split delim (c:cs)
   where
     rest = split delim cs
 
--- Filter graph's routes by allowed routes list
+-- Filter graph"s routes by allowed routes list
 filterGraphRoutes :: [RouteID] -> Graph -> Graph
 filterGraphRoutes allowedRoutes = Map.map (filterNonEmpty . map filterEdgeRoutes)
   where
@@ -125,27 +115,31 @@ mainLoop = do
 
       liftIO $ putStr cliState.clisMessage
       modify (\clis -> clis {clisMessage = ""})
-      choice <- liftIO $ getCharNoNewline "Выберите вариант: "
+      choice <- liftIO $ getLineWithString "Выберите вариант: "
       case choice of
-        '1' -> do
+        "1" -> do
           modify (\clis -> clis {clisScreen = CLIScreenStopSelection StopTypeStartStop ""})
-        '2' -> do
+        "2" -> do
           modify (\clis -> clis {clisScreen = CLIScreenStopSelection StopTypeEndStop ""})
-        '3' -> do
+        "3" -> do
           modify (\clis -> clis {clisScreen = CLIScreenRouteSelection})
-        '4' -> do
+        "4" -> do
           if cliState.clisStartStopID == 0 || cliState.clisEndStopID == 0
           then modify (\clis -> clis {clisMessage = "\nНевозможно найти пути: необходимо выбрать начальную и конечную остановки.\n"})
           else modify (\clis -> clis {clisScreen = CLIScreenPathResults (getPathsBySortType cliState.clisGraph cliState.clisStartStopID cliState.clisEndStopID SortByLength cliState.clisSelectedRouteIDs) SortByLength})
-        'Q' -> do
+        "Q" -> do
           liftIO exitSuccess
-        'q' -> do
+        "q" -> do
+          liftIO exitSuccess
+        "й" -> do
+          liftIO exitSuccess
+        "Й" -> do
           liftIO exitSuccess
         _ -> do
-          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice : "") ++ "\n"})
+          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice) ++ "\n"})
     CLIScreenStopSelection stopType filterName -> do
       liftIO $ putStrLn "Выбор остановки:\n"
-      liftIO $ putStrLn (intercalate "\n" (map (\stop -> show stop.stopID ++ ". " ++ stop.stopName) (filter (\stop -> filterName `isInfixOf` stop.stopName) cliState.clisStops)) ++ "\n")
+      liftIO $ putStrLn (intercalate "\n" (map (\stop -> show stop.stopID ++ ". " ++ stop.stopName) (filter (\stop -> (map toLower filterName) `isInfixOf` (map toLower stop.stopName)) cliState.clisStops)) ++ "\n")
       liftIO $ putStrLn "1. Отфильтровать по названию."
       liftIO $ putStrLn "2. Сбросить фильтр."
       liftIO $ putStrLn "3. Выбрать номер остановки."
@@ -153,14 +147,14 @@ mainLoop = do
 
       liftIO $ putStr cliState.clisMessage
       modify (\clis -> clis {clisMessage = ""})
-      choice <- liftIO $ getCharNoNewline "Выберите вариант: "
+      choice <- liftIO $ getLineWithString "Выберите вариант: "
       case choice of
-        '1' -> do
+        "1" -> do
           newFilterName <- liftIO $ getLineWithString "Введите запрос: "
           modify (\clis -> clis {clisScreen = CLIScreenStopSelection stopType newFilterName})
-        '2' -> do
+        "2" -> do
           modify (\clis -> clis {clisScreen = CLIScreenStopSelection stopType ""})
-        '3' -> do
+        "3" -> do
           newStopIDString <- liftIO $ getLineWithString "Введите номер остановки: "
           case readMaybe newStopIDString of
             Just maybeStopID -> case find (\stop -> stop.stopID == maybeStopID) cliState.clisStops of
@@ -169,12 +163,16 @@ mainLoop = do
                                     StopTypeEndStop -> modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisEndStopID = maybeStopID})
                                   Nothing -> modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий номер остановки: " ++ newStopIDString ++ "\n"})
             Nothing -> modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий номер остановки: " ++ newStopIDString ++ "\n"})
-        'Q' -> do
+        "Q" -> do
           modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
-        'q' -> do
+        "q" -> do
+          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
+        "й" -> do
+          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
+        "Й" -> do
           modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
         _ -> do
-          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice : "") ++ "\n"})
+          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice) ++ "\n"})
     CLIScreenRouteSelection -> do
       liftIO $ putStrLn "Выбор маршрутов:\n"
       liftIO $ putStrLn (intercalate "\n" (map (\route -> show route.routeID ++ ". " ++ route.routeName) cliState.clisRoutes) ++ "\n")
@@ -192,14 +190,14 @@ mainLoop = do
                             modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий номер автобуса: " ++ rIDMaybe ++ "\n"})
                             return 0
         ) (filter (/= "") (split ',' (filter (/= '\n') newRIDsLine)))
-      if 0 `notElem` newRIDs then modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisSelectedRouteIDs = newRIDs}) else modify (\clis -> clis {clisScreen = CLIScreenRouteSelection})
+      if 0 `notElem` newRIDs then modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisSelectedRouteIDs = nub newRIDs}) else modify (\clis -> clis {clisScreen = CLIScreenRouteSelection})
 
     CLIScreenPathResults paths sortBy -> do
       liftIO $ putStrLn ("Пути (по " ++ case sortBy of
                                          SortByLength -> "длине пути"
                                          SortByTransfers -> "количеству пересадок"
                                      ++ "):")
-      liftIO $ putStrLn (intercalate "\n" (map (\(position, path) -> show position ++ ". " ++ show path.pathLength ++ " остановок, " ++ show path.pathTransferAmount ++ " пересадок. " ++ pathToConciseString cliState.clisStops cliState.clisRoutes path ++ ".") (zip [1,2..] paths)) ++ "\n")
+      liftIO $ putStrLn (intercalate "\n" (map (\(position, path) -> show position ++ ". " ++ show path.pathLength ++ " остановок, " ++ show (if path.pathTransferAmount < 0 then 0 else path.pathTransferAmount) ++ " пересадок. " ++ pathToConciseString cliState.clisStops cliState.clisRoutes path ++ (if path.pathTransferAmount < 0 then "" else ".")) (zip [1,2..] paths)) ++ "\n")
       liftIO $ putStrLn ("1. Сортировать пути по " ++ case sortBy of
                                                         SortByLength -> "количеству пересадок"
                                                         SortByTransfers -> "длине пути"
@@ -208,9 +206,9 @@ mainLoop = do
 
       liftIO $ putStr cliState.clisMessage
       modify (\clis -> clis {clisMessage = ""})
-      choice <- liftIO $ getCharNoNewline "Выберите вариант: "
+      choice <- liftIO $ getLineWithString "Выберите вариант: "
       case choice of
-        '1' -> do
+        "1" -> do
           let newSortBy = case sortBy of
                             SortByLength -> SortByTransfers
                             SortByTransfers -> SortByLength
@@ -221,12 +219,16 @@ mainLoop = do
                                                                       newSortBy
                                                                       cliState.clisSelectedRouteIDs
                                                                       ) newSortBy})
-        'Q' -> do
+        "Q" -> do
           modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
-        'q' -> do
+        "q" -> do
+          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
+        "й" -> do
+          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
+        "Й" -> do
           modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
         _ -> do
-          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice : "") ++ "\n"})
+          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice) ++ "\n"})
   mainLoop
 
 cliProcess :: [Stop] -> [Route] -> IO ()
