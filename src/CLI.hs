@@ -8,13 +8,14 @@ import KPath (
   )
 import Structures
 import Control.Monad.State
-import Data.List (find, intercalate, isInfixOf, nub)
+import Data.List (find, intercalate, isInfixOf, nub, sortBy)
 import Data.Maybe (fromMaybe)
 import Text.Read (readMaybe)
 import System.IO
 import System.Exit
 import qualified Data.Map as Map
 import Data.Char (toLower)
+import Data.Ord (comparing)
 
 data CLISortType where
   SortByLength :: CLISortType
@@ -155,9 +156,9 @@ mainLoop = do
       liftIO $ putStrLn "Выбор остановки:\n"
       liftIO $ putStrLn (
         intercalate "\n" (
-          map (\stop -> show stop.stopID ++ ". " ++ stop.stopName) (
-            filter (\stop -> let sName = map toLower stop.stopName
-                             in all (`isInfixOf` sName) (split ' ' (map toLower filterName))) cliState.clisStops)) ++ "\n")
+          map (\stop -> show stop.stopID ++ ". " ++ stop.stopName) (sortBy (\s1 s2 -> comparing stopID s1 s2)
+            (filter (\stop -> let sName = map toLower stop.stopName
+                              in all (`isInfixOf` sName) (split ' ' (map toLower filterName))) cliState.clisStops))) ++ "\n")
       liftIO $ putStrLn "1. Отфильтровать по названию."
       liftIO $ putStrLn "2. Сбросить фильтр."
       liftIO $ putStrLn "3. Выбрать номер остановки."
