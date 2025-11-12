@@ -98,6 +98,26 @@ getPathsBySortType graph startSID endSID sortType selectedRIDs = (case sortType 
   where
     filteredGraph = if null selectedRIDs then graph else filterGraphRoutes selectedRIDs graph
 
+getStopWord :: Int -> String
+getStopWord stopAmount
+  | lastTwo >= 11 && lastTwo <= 14 = "остановок"
+  | lastDigit == 1                 = "остановка"
+  | lastDigit >= 2 && lastDigit <= 4 = "остановки"
+  | otherwise                      = "остановок"
+  where
+    lastTwo = stopAmount `mod` 100
+    lastDigit = stopAmount `mod` 10
+
+getTransferWord :: Int -> String
+getTransferWord n
+  | lastTwo >= 11 && lastTwo <= 14 = "пересадок"
+  | lastDigit == 1                 = "пересадка"
+  | lastDigit >= 2 && lastDigit <= 4 = "пересадки"
+  | otherwise                      = "пересадок"
+  where
+    lastTwo = n `mod` 100
+    lastDigit = n `mod` 10
+
 mainLoop :: CLIApp ()
 mainLoop = do
   cliState <- get
@@ -189,7 +209,14 @@ mainLoop = do
                                          SortByLength -> "длине пути"
                                          SortByTransfers -> "количеству пересадок"
                                      ++ "):")
-      liftIO $ putStrLn (intercalate "\n" (map (\(position, path) -> show position ++ ". " ++ show path.pathLength ++ " остановок, " ++ show (max path.pathTransferAmount 0) ++ " пересадок. " ++ pathToConciseString cliState.clisStops cliState.clisRoutes path ++ (if path.pathTransferAmount < 0 then "" else ".")) (zip [1,2..] paths)) ++ "\n")
+      liftIO $ putStrLn (intercalate "\n"
+        (map (\(position, path) ->
+          show position ++ ". " ++
+          show path.pathLength ++ " " ++ getStopWord path.pathLength ++ ", " ++
+          show (max path.pathTransferAmount 0) ++ " " ++ getTransferWord path.pathTransferAmount ++ ". " ++
+          pathToConciseString cliState.clisStops cliState.clisRoutes path ++
+          (if path.pathTransferAmount < 0 then "" else ".")
+        ) (zip [1,2..] paths)) ++ "\n")
       liftIO $ putStrLn ("1. Сортировать пути по " ++ case sortBy of
                                                         SortByLength -> "количеству пересадок"
                                                         SortByTransfers -> "длине пути"
