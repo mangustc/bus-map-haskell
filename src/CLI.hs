@@ -136,7 +136,8 @@ mainLoop = do
       liftIO $ putStrLn (
         intercalate "\n" (
           map (\stop -> show stop.stopID ++ ". " ++ stop.stopName) (
-            filter (\stop -> map toLower filterName `isInfixOf` map toLower stop.stopName) cliState.clisStops)) ++ "\n")
+            filter (\stop -> let sName = map toLower stop.stopName
+                             in all (`isInfixOf` sName) (split ' ' (map toLower filterName))) cliState.clisStops)) ++ "\n")
       liftIO $ putStrLn "1. Отфильтровать по названию."
       liftIO $ putStrLn "2. Сбросить фильтр."
       liftIO $ putStrLn "3. Выбрать номер остановки."
@@ -213,7 +214,7 @@ mainLoop = do
         "0" -> do
           modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
         _ -> do
-          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice) ++ "\n"})
+          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ choice ++ "\n"})
   mainLoop
 
 cliProcess :: [Stop] -> [Route] -> IO ()
