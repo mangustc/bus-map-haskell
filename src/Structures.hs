@@ -61,9 +61,8 @@ type Graph = Map.Map StopID [(StopID, [RouteID])]
 
 
 edgesFromRoutesStops :: [Route] -> [Stop] -> [Edge]
-edgesFromRoutesStops routes stops = foldr combineEdges [] (
-    concatMap (\r -> zipWith (\stopID1 stopID2 -> (stopID1, stopID2, [r.routeID])) r.routePath (tail r.routePath)) routes
-    ++ concatMap (\r -> zipWith (\stopID1 stopID2 -> (stopID2, stopID1, [0])) r.routePath (tail r.routePath)) routes
+edgesFromRoutesStops routes stops = foldr combineEdges fromRoutes (
+    map (\(sID, sIDNext, _) -> (sIDNext, sID, [0])) fromRoutes
     ++ concatMap (\(s1, s2) -> [(s1.stopID, s2.stopID, [0]), (s2.stopID, s1.stopID, [0])]) pairs
     )
   where
@@ -72,6 +71,8 @@ edgesFromRoutesStops routes stops = foldr combineEdges [] (
     combineEdges edge@(sID, sIDNext, rIDs) (hedge@(hsID, hsIDNext, hrIDs):edges)
       | hsID == sID && hsIDNext == sIDNext = (sID, sIDNext, nub (hrIDs ++ rIDs)) : edges
       | otherwise = hedge : combineEdges edge edges
+
+    fromRoutes = foldr combineEdges [] (concatMap (\r -> zipWith (\stopID1 stopID2 -> (stopID1, stopID2, [r.routeID])) r.routePath (tail r.routePath)) routes)
 
     stopsPaired = filter (\stop -> '(' `elem` stop.stopName) stops
     stopsNorth = filter (\stop -> "Северная" `isInfixOf` stop.stopName) stopsPaired

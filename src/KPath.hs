@@ -49,11 +49,15 @@ queueElementToPath qe = Path {
     fullSegs = zipWith (\rID (sID, sIDNext) -> (rID, sID, sIDNext)) qe.qePathRouteIDs (zip qe.qePathStopIDs (tail qe.qePathStopIDs))
 
 isPointlessAgainst :: QueueElement -> QueueElement -> Bool
-isPointlessAgainst pointlessQE betterQE = let bRIDs = nub betterQE.qePathRouteIDs in
-  length (bRIDs `intersect` pointlessQE.qePathRouteIDs) == betterQE.qeTransferCost + 1 && pointlessQE.qeLengthCost >= betterQE.qeLengthCost
+isPointlessAgainst pointlessQE betterQE =
+  let bRIDs = nub betterQE.qePathRouteIDs
+      pRIDs = nub pointlessQE.qePathRouteIDs
+  in length (bRIDs `intersect` pRIDs) == length bRIDs && pointlessQE.qeLengthCost >= betterQE.qeLengthCost
 
 findEveryKPath :: Graph -> Int -> StopID -> StopID -> [QueueElement]
-findEveryKPath graph pathAmount startSID endSID = nubBy (\qe1 qe2 -> qe1.qePathRouteIDs == qe2.qePathRouteIDs && qe1.qePathStopIDs == qe2.qePathStopIDs)
+findEveryKPath graph pathAmount startSID endSID = if length everyPath == 1 then everyPath else filter (\qe -> nub qe.qePathRouteIDs /= [0]) everyPath
+  where
+    everyPath = nubBy (\qe1 qe2 -> qe1.qePathRouteIDs == qe2.qePathRouteIDs && qe1.qePathStopIDs == qe2.qePathStopIDs)
       (findKPaths insertSortedByLength graph pathAmount startSID endSID ++ findKPaths insertSortedByTransfers graph pathAmount startSID endSID)
 
 findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [Path]
@@ -105,7 +109,6 @@ findKPaths insertFunction graph pathAmount startSID endSID = map
                             nextRID <- nextRIDs,
                             let nextTransferCost = currentEntry.qeTransferCost + (if headRID == nextRID then 0 else 1),
                             nextTransferCost <= maximumRIDsAmount + 1 &&
-                              ((headRID == nextRID) || nextRID `notElem` currentEntry.qePathRouteIDs) &&
                               nextSID `notElem` currentEntry.qePathStopIDs ]
                         newQueue = foldr insertFunction queue' newEntries
                         newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDVisitedAmount + 1) sIDsVisitedAmount
