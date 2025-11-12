@@ -12,12 +12,12 @@ module Structures
   Graph(..),
   getRouteByRouteID,
   getStopByStopID,
-  edgesFromRoutes,
+  edgesFromRoutesStops,
   edgesToGraph,
 ) where
 
 import qualified Data.Map as Map
-import Data.List (insertBy, groupBy, find)
+import Data.List (insertBy, groupBy, find, isInfixOf, nub)
 import Data.Ord (comparing)
 import Data.Maybe (fromMaybe)
 
@@ -60,18 +60,31 @@ type Edge = (StopID, StopID, [RouteID])
 type Graph = Map.Map StopID [(StopID, [RouteID])]
 
 
-edgesFromRoutes :: [Route] -> [Edge]
-edgesFromRoutes routes = foldr combineEdges []
-  (concatMap
-    (\r -> zipWith (\stopID1 stopID2 -> (stopID1, stopID2, [r.routeID])) r.routePath (tail r.routePath))
-    routes
-  )
+edgesFromRoutesStops :: [Route] -> [Stop] -> [Edge]
+edgesFromRoutesStops routes stops = foldr combineEdges [] (
+    concatMap (\r -> zipWith (\stopID1 stopID2 -> (stopID1, stopID2, [r.routeID])) r.routePath (tail r.routePath)) routes
+    ++ concatMap (\r -> zipWith (\stopID1 stopID2 -> (stopID2, stopID1, [0])) r.routePath (tail r.routePath)) routes
+    ++ concatMap (\(s1, s2) -> [(s1.stopID, s2.stopID, [0]), (s2.stopID, s1.stopID, [0])]) pairs
+    )
   where
     combineEdges :: Edge -> [Edge] -> [Edge]
     combineEdges edge [] = [edge]
     combineEdges edge@(sID, sIDNext, rIDs) (hedge@(hsID, hsIDNext, hrIDs):edges)
-      | hsID == sID && hsIDNext == sIDNext = (sID, sIDNext, hrIDs ++ rIDs) : edges
+      | hsID == sID && hsIDNext == sIDNext = (sID, sIDNext, nub (hrIDs ++ rIDs)) : edges
       | otherwise = hedge : combineEdges edge edges
+
+    stopsPaired = filter (\stop -> '(' `elem` stop.stopName) stops
+    stopsNorth = filter (\stop -> "Северная" `isInfixOf` stop.stopName) stopsPaired
+    stopsSouth = filter (\stop -> "Южная" `isInfixOf` stop.stopName) stopsPaired
+    stopsWest = filter (\stop -> "Западная" `isInfixOf` stop.stopName) stopsPaired
+    stopsEast = filter (\stop -> "Восточная" `isInfixOf` stop.stopName) stopsPaired
+    pairsNorthSouth = filter (\(n, s) -> let (nName, nDir) = break (== '(') n.stopName
+                                             (sName, sDir) = break (== '(') s.stopName
+                                         in (nName == sName) && (drop 8 nDir == drop 5 sDir)) [(sn, ss) | sn <- stopsNorth, ss <- stopsSouth]
+    pairsWestEast = filter (\(w, e) -> let (wName, wDir) = break (== '(') w.stopName
+                                           (eName, eDir) = break (== '(') e.stopName
+                                       in (wName == eName) && (drop 8 wDir == drop 5 eDir)) [(sw, se) | sw <- stopsWest, se <- stopsEast]
+    pairs = pairsNorthSouth ++ pairsWestEast
 
 edgesToGraph :: [Edge] -> Graph
 edgesToGraph = foldr (\(sID, sIDNext, rIDs) acc -> Map.insertWith (++) sID [(sIDNext, rIDs)] acc) Map.empty

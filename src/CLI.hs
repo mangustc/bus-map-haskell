@@ -248,7 +248,7 @@ mainLoop = do
 cliProcess :: [Stop] -> [Route] -> IO ()
 cliProcess stops routes = do
   liftIO $ putStr "\ESC[2J"
-  let graph = edgesToGraph (edgesFromRoutes routes)
+  let graph = edgesToGraph (edgesFromRoutesStops routes stops)
 
   let cliState = CLIState {
     clisStops = stops,

@@ -69,7 +69,9 @@ findKPathsByTransfers graph pathAmount startSID endSID = map queueElementToPath
       (findEveryKPath graph pathAmount startSID endSID)))
 
 findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [QueueElement]
-findKPaths insertFunction graph pathAmount startSID endSID = map (\qe -> qe {qePathRouteIDs = tail (reverse qe.qePathRouteIDs), qePathStopIDs = reverse qe.qePathStopIDs}) $ reverse (findKPathsByLength' [QueueElement {qeLengthCost = 0, qeTransferCost = 0, qeCurrentStopID = startSID, qePathRouteIDs = [0], qePathStopIDs = [startSID]}] Map.empty [])
+findKPaths insertFunction graph pathAmount startSID endSID = map
+  (\qe -> qe {qePathRouteIDs = tail (reverse qe.qePathRouteIDs), qePathStopIDs = reverse qe.qePathStopIDs})
+    $ reverse (findKPathsByLength' [QueueElement {qeLengthCost = 0, qeTransferCost = 0, qeCurrentStopID = startSID, qePathRouteIDs = [-1], qePathStopIDs = [startSID]}] Map.empty [])
   where
     maximumRIDsAmount = length (nub (concatMap snd (concat (Map.elems graph))))
     findKPathsByLength' :: [QueueElement] -> Map.Map StopID Int -> [QueueElement] -> [QueueElement]
@@ -94,15 +96,15 @@ findKPaths insertFunction graph pathAmount startSID endSID = map (\qe -> qe {qeP
                         headRID = head currentEntry.qePathRouteIDs
                         newEntries = [
                           QueueElement {
-                            qeLengthCost = currentEntry.qeLengthCost + 1,
-                            qeTransferCost = nextTransferCost,
-                            qeCurrentStopID = nextSID,
-                            qePathRouteIDs = nextRID: currentEntry.qePathRouteIDs,
-                            qePathStopIDs = nextSID : currentEntry.qePathStopIDs
+                              qeLengthCost = currentEntry.qeLengthCost + if nextRID == 0 then 3 else 1,
+                              qeTransferCost = nextTransferCost,
+                              qeCurrentStopID = nextSID,
+                              qePathRouteIDs = nextRID: currentEntry.qePathRouteIDs,
+                              qePathStopIDs = nextSID : currentEntry.qePathStopIDs
                             } | (nextSID, nextRIDs) <- nextSIDsWithRIDs,
                             nextRID <- nextRIDs,
                             let nextTransferCost = currentEntry.qeTransferCost + (if headRID == nextRID then 0 else 1),
-                            nextTransferCost <= maximumRIDsAmount &&
+                            nextTransferCost <= maximumRIDsAmount + 1 &&
                               ((headRID == nextRID) || nextRID `notElem` currentEntry.qePathRouteIDs) &&
                               nextSID `notElem` currentEntry.qePathStopIDs ]
                         newQueue = foldr insertFunction queue' newEntries
