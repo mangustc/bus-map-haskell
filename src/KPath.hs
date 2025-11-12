@@ -86,7 +86,7 @@ findKPaths insertFunction graph pathAmount startSID endSID = map
           let currentEntry = head queue
               queue' = tail queue
               currentSIDVisitedAmount = Map.findWithDefault 0 currentEntry.qeCurrentStopID sIDsVisitedAmount
-          in if currentSIDVisitedAmount >= pathAmount * (maximumRIDsAmount * 3)
+          in if currentSIDVisitedAmount >= pathAmount * maximumRIDsAmount * 3
              then findKPathsByLength' queue' sIDsVisitedAmount currentPaths
              else if currentEntry.qeCurrentStopID == endSID
                   then
@@ -100,15 +100,16 @@ findKPaths insertFunction graph pathAmount startSID endSID = map
                         headRID = head currentEntry.qePathRouteIDs
                         newEntries = [
                           QueueElement {
-                              qeLengthCost = currentEntry.qeLengthCost + if nextRID == 0 then 3 else 1,
+                              qeLengthCost = currentEntry.qeLengthCost + if nextRID == 0 then 4 else 1,
                               qeTransferCost = nextTransferCost,
                               qeCurrentStopID = nextSID,
-                              qePathRouteIDs = nextRID: currentEntry.qePathRouteIDs,
+                              qePathRouteIDs = nextRID : currentEntry.qePathRouteIDs,
                               qePathStopIDs = nextSID : currentEntry.qePathStopIDs
                             } | (nextSID, nextRIDs) <- nextSIDsWithRIDs,
                             nextRID <- nextRIDs,
                             let nextTransferCost = currentEntry.qeTransferCost + (if headRID == nextRID then 0 else 1),
-                            nextTransferCost <= maximumRIDsAmount + 1 &&
+                            nextTransferCost <= maximumRIDsAmount &&
+                              (nextRID == 0 || headRID == nextRID || nextRID `notElem` tail currentEntry.qePathRouteIDs) &&
                               nextSID `notElem` currentEntry.qePathStopIDs ]
                         newQueue = foldr insertFunction queue' newEntries
                         newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDVisitedAmount + 1) sIDsVisitedAmount
