@@ -111,7 +111,7 @@ mainLoop = do
       liftIO $ putStrLn "2. Выбрать конечную остановку."
       liftIO $ putStrLn "3. Выбрать маршруты."
       liftIO $ putStrLn "4. Найти пути."
-      liftIO $ putStrLn "Q. Выйти из программы."
+      liftIO $ putStrLn "0. Выйти из программы."
 
       liftIO $ putStr cliState.clisMessage
       modify (\clis -> clis {clisMessage = ""})
@@ -127,23 +127,20 @@ mainLoop = do
           if cliState.clisStartStopID == 0 || cliState.clisEndStopID == 0
           then modify (\clis -> clis {clisMessage = "\nНевозможно найти пути: необходимо выбрать начальную и конечную остановки.\n"})
           else modify (\clis -> clis {clisScreen = CLIScreenPathResults (getPathsBySortType cliState.clisGraph cliState.clisStartStopID cliState.clisEndStopID SortByLength cliState.clisSelectedRouteIDs) SortByLength})
-        "Q" -> do
-          liftIO exitSuccess
-        "q" -> do
-          liftIO exitSuccess
-        "й" -> do
-          liftIO exitSuccess
-        "Й" -> do
+        "0" -> do
           liftIO exitSuccess
         _ -> do
-          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice) ++ "\n"})
+          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ choice ++ "\n"})
     CLIScreenStopSelection stopType filterName -> do
       liftIO $ putStrLn "Выбор остановки:\n"
-      liftIO $ putStrLn (intercalate "\n" (map (\stop -> show stop.stopID ++ ". " ++ stop.stopName) (filter (\stop -> (map toLower filterName) `isInfixOf` (map toLower stop.stopName)) cliState.clisStops)) ++ "\n")
+      liftIO $ putStrLn (
+        intercalate "\n" (
+          map (\stop -> show stop.stopID ++ ". " ++ stop.stopName) (
+            filter (\stop -> map toLower filterName `isInfixOf` map toLower stop.stopName) cliState.clisStops)) ++ "\n")
       liftIO $ putStrLn "1. Отфильтровать по названию."
       liftIO $ putStrLn "2. Сбросить фильтр."
       liftIO $ putStrLn "3. Выбрать номер остановки."
-      liftIO $ putStrLn "Q. Вернуться в меню."
+      liftIO $ putStrLn "0. Вернуться в меню."
 
       liftIO $ putStr cliState.clisMessage
       modify (\clis -> clis {clisMessage = ""})
@@ -163,16 +160,10 @@ mainLoop = do
                                     StopTypeEndStop -> modify (\clis -> clis {clisScreen = CLIScreenMainMenu, clisEndStopID = maybeStopID})
                                   Nothing -> modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий номер остановки: " ++ newStopIDString ++ "\n"})
             Nothing -> modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий номер остановки: " ++ newStopIDString ++ "\n"})
-        "Q" -> do
-          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
-        "q" -> do
-          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
-        "й" -> do
-          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
-        "Й" -> do
+        "0" -> do
           modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
         _ -> do
-          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice) ++ "\n"})
+          modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ choice ++ "\n"})
     CLIScreenRouteSelection -> do
       liftIO $ putStrLn "Выбор маршрутов:\n"
       liftIO $ putStrLn (intercalate "\n" (map (\route -> show route.routeID ++ ". " ++ route.routeName) cliState.clisRoutes) ++ "\n")
@@ -197,12 +188,12 @@ mainLoop = do
                                          SortByLength -> "длине пути"
                                          SortByTransfers -> "количеству пересадок"
                                      ++ "):")
-      liftIO $ putStrLn (intercalate "\n" (map (\(position, path) -> show position ++ ". " ++ show path.pathLength ++ " остановок, " ++ show (if path.pathTransferAmount < 0 then 0 else path.pathTransferAmount) ++ " пересадок. " ++ pathToConciseString cliState.clisStops cliState.clisRoutes path ++ (if path.pathTransferAmount < 0 then "" else ".")) (zip [1,2..] paths)) ++ "\n")
+      liftIO $ putStrLn (intercalate "\n" (map (\(position, path) -> show position ++ ". " ++ show path.pathLength ++ " остановок, " ++ show (max path.pathTransferAmount 0) ++ " пересадок. " ++ pathToConciseString cliState.clisStops cliState.clisRoutes path ++ (if path.pathTransferAmount < 0 then "" else ".")) (zip [1,2..] paths)) ++ "\n")
       liftIO $ putStrLn ("1. Сортировать пути по " ++ case sortBy of
                                                         SortByLength -> "количеству пересадок"
                                                         SortByTransfers -> "длине пути"
                                                    ++ ".")
-      liftIO $ putStrLn "Q. Вернуться в меню."
+      liftIO $ putStrLn "0. Вернуться в меню."
 
       liftIO $ putStr cliState.clisMessage
       modify (\clis -> clis {clisMessage = ""})
@@ -219,13 +210,7 @@ mainLoop = do
                                                                       newSortBy
                                                                       cliState.clisSelectedRouteIDs
                                                                       ) newSortBy})
-        "Q" -> do
-          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
-        "q" -> do
-          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
-        "й" -> do
-          modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
-        "Й" -> do
+        "0" -> do
           modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
         _ -> do
           modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ (choice) ++ "\n"})
