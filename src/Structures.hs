@@ -86,7 +86,7 @@ edgesFromRoutesStops routes stops = foldr combineEdges fromRoutes (
                                          in (nName == sName) && (drop 8 nDir == drop 5 sDir)) [(sn, ss) | sn <- stopsNorth, ss <- stopsSouth]
     pairsWestEast = filter (\(w, e) -> let (wName, wDir) = break (== '(') w.stopName
                                            (eName, eDir) = break (== '(') e.stopName
-                                       in (wName == eName) && (drop 8 wDir == drop 5 eDir)) [(sw, se) | sw <- stopsWest, se <- stopsEast]
+                                       in (wName == eName) && (drop 8 wDir == drop 9 eDir)) [(sw, se) | sw <- stopsWest, se <- stopsEast]
     pairs = pairsNorthSouth ++ pairsWestEast
 
 edgesToGraph :: [Edge] -> Graph
