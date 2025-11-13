@@ -71,13 +71,12 @@ split delim (c:cs)
   where
     rest = split delim cs
 
--- Filter graph"s routes by allowed routes list
 filterGraphRoutes :: [RouteID] -> Graph -> Graph
-filterGraphRoutes allowedRoutes = Map.map (filterNonEmpty . map filterEdgeRoutes)
+filterGraphRoutes allowedRoutesTemp = Map.map (filterNonEmpty . map filterEdgeRoutes)
   where
+    allowedRoutes = 0 : allowedRoutesTemp
     filterEdgeRoutes :: (StopID, [RouteID]) -> (StopID, [RouteID])
-    filterEdgeRoutes (stop, routes) =
-      (stop, filter (`elem` allowedRoutes) routes)
+    filterEdgeRoutes (stop, routes) = (stop, filter (`elem` allowedRoutes) routes)
     filterNonEmpty :: [(StopID, [RouteID])] -> [(StopID, [RouteID])]
     filterNonEmpty = filter (\(_, routes) -> not (null routes))
 
