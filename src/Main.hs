@@ -1,8 +1,10 @@
 module Main where
 
 import KPath (
-  findKPathsByLength,
-  findKPathsByTransfers,
+  findEveryKPath,
+  getKPathsByLength,
+  getKPathsByTransfers,
+  QueueElement,
   )
 import Structures
 import Text.Read (

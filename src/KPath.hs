@@ -1,8 +1,10 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 module KPath
 (
-  findKPathsByLength,
-  findKPathsByTransfers,
+  findEveryKPath,
+  getKPathsByTransfers,
+  getKPathsByLength,
+  QueueElement,
 ) where
 
 import Structures
@@ -77,15 +79,15 @@ findEveryKPath graph pathAmount startSID endSID = filter (\qe ->
       (findKPaths insertSortedByLength graph pathAmount startSID endSID ++ findKPaths insertSortedByTransfers graph pathAmount startSID endSID)
     maybeWithoutZeroPaths = filter (\qe -> not (length qe.qePathRouteIDs /= 1 && nub qe.qePathRouteIDs == [0])) everyPath
 
-findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [Path]
-findKPathsByLength graph pathAmount startSID endSID = map queueElementToPath
-    (sortBy (\qe1 qe2 -> comparing qeLengthCost qe1 qe2 <> comparing qeTransferCost qe1 qe2)
-      (findEveryKPath graph pathAmount startSID endSID))
+getKPathsByLength :: [QueueElement] -> [Path]
+getKPathsByLength qePaths = map queueElementToPath
+    (sortBy (\qe1 qe2 -> comparing qeLengthCost qe1 qe2 <> comparing (\qe -> max 0 (length (filter (/= 0) (cutRepeating qe.qePathRouteIDs)) - 1)) qe1 qe2)
+      qePaths)
 
-findKPathsByTransfers :: Graph -> Int -> StopID -> StopID -> [Path]
-findKPathsByTransfers graph pathAmount startSID endSID = map queueElementToPath
-    (sortBy (\qe1 qe2 -> comparing qeTransferCost qe1 qe2 <> comparing qeLengthCost qe1 qe2)
-      (findEveryKPath graph pathAmount startSID endSID))
+getKPathsByTransfers :: [QueueElement] -> [Path]
+getKPathsByTransfers qePaths = map queueElementToPath
+    (sortBy (\qe1 qe2 -> comparing (\qe -> max 0 (length (filter (/= 0) (cutRepeating qe.qePathRouteIDs)) - 1)) qe1 qe2 <> comparing qeLengthCost qe1 qe2)
+      qePaths)
 
 findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [QueueElement]
 findKPaths insertFunction graph pathAmount startSID endSID = map

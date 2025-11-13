@@ -3,8 +3,10 @@ module CLI (
   ) where
 
 import KPath (
-  findKPathsByLength,
-  findKPathsByTransfers,
+  findEveryKPath,
+  getKPathsByLength,
+  getKPathsByTransfers,
+  QueueElement,
   )
 import Structures
 import Control.Monad.State
@@ -31,7 +33,7 @@ data CLIScreen where
   CLIScreenStopSelection :: CLIStopSelectionStopType ->
                               String ->
                               CLIScreen
-  CLIScreenPathResults :: [Path] -> CLISortType -> CLIScreen
+  CLIScreenPathResults :: [QueueElement] -> CLISortType -> CLIScreen
   deriving (Show, Read)
 data CLIState where
   CLIState :: {
@@ -92,10 +94,8 @@ pathToConciseString stops routes path = segsToString path.pathConciseSegments
     segsToString [hseg@(_, sID, sIDNext)] = (getStopByStopID stops sID).stopName ++ " " ++ getRouteLine hseg ++ " " ++ (getStopByStopID stops sIDNext).stopName
     segsToString (hseg@(_, sID, _):tseg) = (getStopByStopID stops sID).stopName ++ " " ++ getRouteLine hseg ++ " " ++ segsToString tseg
 
-getPathsBySortType :: Graph -> StopID -> StopID -> CLISortType -> [RouteID] -> [Path]
-getPathsBySortType graph startSID endSID sortType selectedRIDs = (case sortType of
-                                                                       SortByLength -> findKPathsByLength
-                                                                       SortByTransfers -> findKPathsByTransfers) filteredGraph pathAmount startSID endSID
+getEveryQE :: Graph -> StopID -> StopID -> CLISortType -> [RouteID] -> [QueueElement]
+getEveryQE graph startSID endSID sortType selectedRIDs = findEveryKPath filteredGraph pathAmount startSID endSID
   where
     filteredGraph = if null selectedRIDs then graph else filterGraphRoutes selectedRIDs graph
 
@@ -147,7 +147,7 @@ mainLoop = do
         "4" -> do
           if cliState.clisStartStopID == 0 || cliState.clisEndStopID == 0
           then modify (\clis -> clis {clisMessage = "\nНевозможно найти пути: необходимо выбрать начальную и конечную остановки.\n"})
-          else modify (\clis -> clis {clisScreen = CLIScreenPathResults (getPathsBySortType cliState.clisGraph cliState.clisStartStopID cliState.clisEndStopID SortByLength cliState.clisSelectedRouteIDs) SortByLength})
+          else modify (\clis -> clis {clisScreen = CLIScreenPathResults (getEveryQE cliState.clisGraph cliState.clisStartStopID cliState.clisEndStopID SortByLength cliState.clisSelectedRouteIDs) SortByLength})
         "0" -> do
           liftIO exitSuccess
         _ -> do
@@ -218,7 +218,9 @@ mainLoop = do
           show path.pathWalkingAmount ++ " " ++ "пешком" ++ ". " ++
           pathToConciseString cliState.clisStops (Route {routeID = 0, routeName = "пешком", routePath = []} : cliState.clisRoutes) path ++
           (if path.pathTransferAmount == 0 then "" else ".")
-        ) (zip [1,2..] paths)) ++ "\n")
+        ) (zip [1,2..] (case sortBy of
+                        SortByLength -> getKPathsByLength paths
+                        SortByTransfers -> getKPathsByTransfers paths))) ++ "\n")
       liftIO $ putStrLn ("1. Сортировать пути по " ++ case sortBy of
                                                         SortByLength -> "количеству пересадок"
                                                         SortByTransfers -> "длине пути"
@@ -233,13 +235,7 @@ mainLoop = do
           let newSortBy = case sortBy of
                             SortByLength -> SortByTransfers
                             SortByTransfers -> SortByLength
-          modify (\clis -> clis {clisScreen = CLIScreenPathResults (getPathsBySortType
-                                                                      cliState.clisGraph
-                                                                      cliState.clisStartStopID
-                                                                      cliState.clisEndStopID
-                                                                      newSortBy
-                                                                      cliState.clisSelectedRouteIDs
-                                                                      ) newSortBy})
+          modify (\clis -> clis {clisScreen = CLIScreenPathResults paths newSortBy})
         "0" -> do
           modify (\clis -> clis {clisScreen = CLIScreenMainMenu})
         _ -> do
