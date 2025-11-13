@@ -157,7 +157,7 @@ mainLoop = do
       liftIO $ putStrLn (
         intercalate "\n" (
           map (\stop -> show stop.stopID ++ ". " ++ stop.stopName) (sortBy (comparing stopID)
-            (filter (\stop -> let sName = map toLower stop.stopName
+            (filter (\stop -> let sName = takeWhile (/= '(') (map toLower stop.stopName)
                               in all (`isInfixOf` sName) (split ' ' (map toLower filterName))) cliState.clisStops))) ++ "\n")
       liftIO $ putStrLn "1. Отфильтровать по названию."
       liftIO $ putStrLn "2. Сбросить фильтр."
