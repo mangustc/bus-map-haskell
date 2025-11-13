@@ -214,9 +214,10 @@ mainLoop = do
         (map (\(position, path) ->
           show position ++ ". " ++
           show path.pathLength ++ " " ++ getStopWord path.pathLength ++ ", " ++
-          show (max path.pathTransferAmount 0) ++ " " ++ getTransferWord path.pathTransferAmount ++ ". " ++
-          pathToConciseString cliState.clisStops cliState.clisRoutes path ++
-          (if path.pathTransferAmount < 0 then "" else ".")
+          show path.pathTransferAmount ++ " " ++ getTransferWord path.pathTransferAmount ++ ", " ++
+          show path.pathWalkingAmount ++ " " ++ "пешком" ++ ". " ++
+          pathToConciseString cliState.clisStops (Route {routeID = 0, routeName = "пешком", routePath = []} : cliState.clisRoutes) path ++
+          (if path.pathTransferAmount == 0 then "" else ".")
         ) (zip [1,2..] paths)) ++ "\n")
       liftIO $ putStrLn ("1. Сортировать пути по " ++ case sortBy of
                                                         SortByLength -> "количеству пересадок"

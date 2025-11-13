@@ -30,18 +30,19 @@ insertSortedByTransfers = insertBy (\qe1 qe2 -> comparing qeTransferCost qe1 qe2
 
 queueElementToPath :: QueueElement -> Path
 queueElementToPath qe = Path {
-  pathLength = qe.qeLengthCost,
-  pathTransferAmount = qe.qeTransferCost - 1,
-  pathFullSegments = zipWith (\rID (sID, sIDNext) -> (rID, sID, sIDNext)) qe.qePathRouteIDs (zip qe.qePathStopIDs (tail qe.qePathStopIDs)),
-  pathConciseSegments = getConciseSegments fullSegs
+    pathLength = max 0 (length qe.qePathStopIDs - 1),
+    pathTransferAmount = max 0 (length (filter (/= 0) (cutRepeating qe.qePathRouteIDs)) - 1),
+    pathWalkingAmount = length (filter (== 0) qe.qePathRouteIDs),
+    pathFullSegments = zipWith (\rID (sID, sIDNext) -> (rID, sID, sIDNext)) qe.qePathRouteIDs (zip qe.qePathStopIDs (tail qe.qePathStopIDs)),
+    pathConciseSegments = getConciseSegments fullSegs
   }
   where
     getConciseSegments :: [PathSegment] -> [PathSegment]
     getConciseSegments [] = []
     getConciseSegments [hps] = [hps]
     getConciseSegments (hps@(hRID, hSID, hSIDNext):tps)
-      | nRID == hRID = (hRID, hSID, nSIDNext) : tail next
-      | otherwise = hps : next
+      | nRID /= hRID || nRID == 0 = hps : next
+      | otherwise = (hRID, hSID, nSIDNext) : tail next
       where
         next = getConciseSegments tps
         (nRID,nSID,nSIDNext) = head next
@@ -74,19 +75,17 @@ findEveryKPath graph pathAmount startSID endSID = filter (\qe ->
   where
     everyPath = nubBy (\qe1 qe2 -> qe1.qePathRouteIDs == qe2.qePathRouteIDs && qe1.qePathStopIDs == qe2.qePathStopIDs)
       (findKPaths insertSortedByLength graph pathAmount startSID endSID ++ findKPaths insertSortedByTransfers graph pathAmount startSID endSID)
-    maybeWithoutZeroPaths = if length everyPath == 1 then everyPath else filter (\qe -> nub qe.qePathRouteIDs /= [0]) everyPath
+    maybeWithoutZeroPaths = filter (\qe -> not (length qe.qePathRouteIDs /= 1 && nub qe.qePathRouteIDs == [0])) everyPath
 
 findKPathsByLength :: Graph -> Int -> StopID -> StopID -> [Path]
 findKPathsByLength graph pathAmount startSID endSID = map queueElementToPath
-  (take pathAmount
     (sortBy (\qe1 qe2 -> comparing qeLengthCost qe1 qe2 <> comparing qeTransferCost qe1 qe2)
-      (findEveryKPath graph pathAmount startSID endSID)))
+      (findEveryKPath graph pathAmount startSID endSID))
 
 findKPathsByTransfers :: Graph -> Int -> StopID -> StopID -> [Path]
 findKPathsByTransfers graph pathAmount startSID endSID = map queueElementToPath
-  (take pathAmount
     (sortBy (\qe1 qe2 -> comparing qeTransferCost qe1 qe2 <> comparing qeLengthCost qe1 qe2)
-      (findEveryKPath graph pathAmount startSID endSID)))
+      (findEveryKPath graph pathAmount startSID endSID))
 
 findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [QueueElement]
 findKPaths insertFunction graph pathAmount startSID endSID = map

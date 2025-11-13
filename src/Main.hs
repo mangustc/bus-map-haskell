@@ -69,7 +69,10 @@ main = do
 
   sanityChecks stops routes
 
-  let edges = edgesFromRoutesStops routes stops
-  let graph = edgesToGraph edges
-  mapM_ print (findKPathsByLength graph 5 99 302)
-  -- mapM_ print (findKPathsByLength graph 5 99 133)
+  cliProcess stops routes
+
+  -- let edges = edgesFromRoutesStops routes stops
+  -- let graph = edgesToGraph edges
+  -- -- mapM_ print (findKPathsByLength graph 5 99 302)
+  -- mapM_ print (findKPathsByLength graph 5 14 1)
+  -- -- mapM_ print (findKPathsByLength graph 5 99 133)
