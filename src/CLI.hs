@@ -245,9 +245,10 @@ cliProcess :: [Stop] -> [Route] -> IO ()
 cliProcess stops routes = do
   liftIO $ putStr "\ESC[2J"
   let graph = edgesToGraph (edgesFromRoutesStops routes stops)
+  let sIDsWithRoutes = Map.keys graph
 
   let cliState = CLIState {
-    clisStops = stops,
+    clisStops = filter (\s -> s.stopID `elem` sIDsWithRoutes) stops,
     clisRoutes = routes,
     clisGraph = graph,
     clisStartStopID = 0,
