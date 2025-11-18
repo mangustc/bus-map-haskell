@@ -10,8 +10,9 @@ module KPath
 import Structures
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Data.List (insertBy, intersect, nub, sortBy, nubBy)
+import Data.List (insertBy, intersect, nub, sortBy, nubBy, minimumBy, maximumBy, isInfixOf)
 import Data.Ord (comparing)
+import Debug.Trace (trace)
 
 type Weight = Int
 data QueueElement where
@@ -69,7 +70,10 @@ isPointlessAgainst :: QueueElement -> QueueElement -> Bool
 isPointlessAgainst pointlessQE betterQE =
   let bRIDs = cutRepeating betterQE.qePathRouteIDs
       pRIDs = cutRepeating pointlessQE.qePathRouteIDs
-  in null (foldr removeOne bRIDs pRIDs) && pointlessQE.qeLengthCost >= betterQE.qeLengthCost
+  in null (foldr removeOne bRIDs pRIDs) && (pointlessQE.qeLengthCost >= betterQE.qeLengthCost)
+
+maxZerosPercentage :: Double
+maxZerosPercentage = 0.5
 
 findEveryKPath :: Graph -> Int -> StopID -> StopID -> [QueueElement]
 findEveryKPath graph pathAmount startSID endSID = filter (\qe ->
@@ -77,41 +81,61 @@ findEveryKPath graph pathAmount startSID endSID = filter (\qe ->
   where
     everyPath = nubBy (\qe1 qe2 -> qe1.qePathRouteIDs == qe2.qePathRouteIDs && qe1.qePathStopIDs == qe2.qePathStopIDs)
       (findKPaths insertSortedByLength graph pathAmount startSID endSID ++ findKPaths insertSortedByTransfers graph pathAmount startSID endSID)
-    maybeWithoutZeroPaths = filter (\qe -> not (length qe.qePathRouteIDs /= 1 && nub qe.qePathRouteIDs == [0])) everyPath
+    averageLengthCost = sum (map qeLengthCost everyPath) `div` length everyPath
+    maybeWithoutZeroPaths = if length everyPath /= 1
+                            then filter (\qe -> let zerosAmount = length (filter (== 0) qe.qePathRouteIDs)
+                                                    routesAmount = length qe.qePathRouteIDs
+                                                    zerosPercentage = (fromIntegral zerosAmount / fromIntegral routesAmount)
+                                                in not (averageLengthCost < qe.qeLengthCost && (zerosPercentage > maxZerosPercentage))) everyPath
+                            else everyPath
+    -- maybeWithoutZeroPaths = everyPath
 
 getKPathsByLength :: [QueueElement] -> [Path]
-getKPathsByLength qePaths = map queueElementToPath
-    (sortBy (\qe1 qe2 -> comparing qeLengthCost qe1 qe2 <> comparing (\qe -> max 0 (length (filter (/= 0) (cutRepeating qe.qePathRouteIDs)) - 1)) qe1 qe2)
-      qePaths)
+getKPathsByLength qePaths = map queueElementToPath sortedPaths
+  where
+    sortedPaths = sortBy (\qe1 qe2 -> comparing qeLengthCost qe1 qe2 <> comparing (\qe -> max 0 (length (filter (/= 0) (cutRepeating qe.qePathRouteIDs)) - 1)) qe1 qe2) qePaths
 
 getKPathsByTransfers :: [QueueElement] -> [Path]
-getKPathsByTransfers qePaths = map queueElementToPath
-    (sortBy (\qe1 qe2 -> comparing (\qe -> max 0 (length (filter (/= 0) (cutRepeating qe.qePathRouteIDs)) - 1)) qe1 qe2 <> comparing qeLengthCost qe1 qe2)
-      qePaths)
+getKPathsByTransfers qePaths = map queueElementToPath sortedPaths
+  where
+    sortedPaths = sortBy (\qe1 qe2 -> comparing (\qe -> max 0 (length (filter (/= 0) (cutRepeating qe.qePathRouteIDs)) - 1)) qe1 qe2 <> comparing qeLengthCost qe1 qe2) qePaths
+
+
+getSIDsRemainingAmounts :: Map.Map StopID [(StopID, [RouteID])] -> Int -> Map.Map StopID Int
+getSIDsRemainingAmounts graph pathAmount =
+  let destRoutes = concatMap (\(_, tos) -> [(to, rid) | (to, rids) <- tos, rid <- rids]) (Map.toList graph)
+      inRoutes = map (\(sID, tos) -> (sID, concatMap snd tos)) (Map.toList graph)
+      routeMap = Map.fromListWith (++) ([(to, [rid]) | (to, rid) <- destRoutes] ++ inRoutes)
+  in Map.map (\rIDs -> length rIDs * pathAmount) routeMap
 
 findKPaths :: (QueueElement -> [QueueElement] -> [QueueElement]) -> Graph -> Int -> StopID -> StopID -> [QueueElement]
-findKPaths insertFunction graph pathAmount startSID endSID = map
+findKPaths insertFunction graph pathAmountTemp startSID endSID = map
   (\qe -> qe {qePathRouteIDs = tail (reverse qe.qePathRouteIDs), qePathStopIDs = reverse qe.qePathStopIDs})
-    $ reverse (findKPaths' [QueueElement {qeLengthCost = 0, qeTransferCost = 0, qeCurrentStopID = startSID, qePathRouteIDs = [-1], qePathStopIDs = [startSID]}] Map.empty [])
+    $ reverse (findKPaths' [QueueElement {
+                              qeLengthCost = 0,
+                              qeTransferCost = 0,
+                              qeCurrentStopID = startSID,
+                              qePathRouteIDs = [-1],
+                              qePathStopIDs = [startSID]
+                            }] (getSIDsRemainingAmounts graph pathAmount) [])
   where
+    pathAmount = pathAmountTemp + 1
     maximumRIDsAmount = length (nub (concatMap snd (concat (Map.elems graph))))
     findKPaths' :: [QueueElement] -> Map.Map StopID Int -> [QueueElement] -> [QueueElement]
-    findKPaths' queue sIDsVisitedAmount currentPaths
+    findKPaths' queue sIDsRemainingAmount currentPaths
       | length currentPaths >= pathAmount = currentPaths
       | null queue = currentPaths
       | otherwise =
           let currentEntry = head queue
               queue' = tail queue
-              currentSIDVisitedAmount = Map.findWithDefault 0 currentEntry.qeCurrentStopID sIDsVisitedAmount
-          in if currentSIDVisitedAmount >= pathAmount * maximumRIDsAmount * 2
-             then findKPaths' queue' sIDsVisitedAmount currentPaths
-             else if currentEntry.qeCurrentStopID == endSID
+              currentSIDRemainingAmount = Map.findWithDefault 0 currentEntry.qeCurrentStopID sIDsRemainingAmount
+          in if currentEntry.qeCurrentStopID == endSID
                   then
                     let isPathPointless = any (\path -> currentEntry `isPointlessAgainst` path) currentPaths
                         plus = if isPathPointless then 0 else 1
                         filteredPaths = if isPathPointless then currentPaths else currentEntry : filter (\path -> not (path `isPointlessAgainst` currentEntry)) currentPaths
-                        newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDVisitedAmount + plus) sIDsVisitedAmount
-                    in findKPaths' queue' newSIDsVisitedAmount filteredPaths
+                        newSIDsRemainingAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDRemainingAmount - plus) sIDsRemainingAmount
+                    in findKPaths' queue' newSIDsRemainingAmount filteredPaths
                   else
                     let nextSIDsWithRIDs = Map.findWithDefault [] currentEntry.qeCurrentStopID graph
                         headRID = head currentEntry.qePathRouteIDs
@@ -129,9 +153,10 @@ findKPaths insertFunction graph pathAmount startSID endSID = map
                           nextTransferCost <= maximumRIDsAmount &&
                             (nextRID == 0 || headRID == nextRID || nextRID `notElem` tail currentEntry.qePathRouteIDs) &&
                             nextSID `notElem` currentEntry.qePathStopIDs &&
-                            not (any (\path -> qe `isPointlessAgainst` path) currentPaths)
+                            not (any (\path -> qe `isPointlessAgainst` path) currentPaths) &&
+                            not (any (\path -> head path.qePathStopIDs == head qe.qePathStopIDs && qe `isPointlessAgainst` path) queue')
                           ]
                         newQueue = foldr insertFunction queue' newEntries
-                        newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDVisitedAmount + 1) sIDsVisitedAmount
+                        newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDRemainingAmount - 1) sIDsRemainingAmount
                     in findKPaths' newQueue newSIDsVisitedAmount currentPaths
 
