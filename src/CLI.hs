@@ -129,7 +129,7 @@ mainLoop = do
       liftIO $ putStrLn ("Маршруты: " ++ if null cliState.clisSelectedRouteIDs then "Все" else intercalate ", " (map (\rID -> (getRouteByRouteID cliState.clisRoutes rID).routeName) cliState.clisSelectedRouteIDs) ++ "\n")
       liftIO $ putStrLn "1. Выбрать начальную остановку."
       liftIO $ putStrLn "2. Выбрать конечную остановку."
-      liftIO $ putStrLn "3. Выбрать маршруты."
+      liftIO $ putStrLn "3. Отфильтровать по маршрутам."
       liftIO $ putStrLn "4. Найти пути."
       liftIO $ putStrLn "0. Выйти из программы."
 
@@ -186,12 +186,12 @@ mainLoop = do
         _ -> do
           modify (\clis -> clis {clisMessage = "\n" ++ "Несуществующий вариант: " ++ choice ++ "\n"})
     CLIScreenRouteSelection -> do
-      liftIO $ putStrLn "Выбор маршрутов:\n"
+      liftIO $ putStrLn "Фильтр по маршрутам:\n"
       liftIO $ putStrLn (intercalate "\n" (map (\route -> show route.routeID ++ ". " ++ route.routeName) cliState.clisRoutes) ++ "\n")
 
       liftIO $ putStr cliState.clisMessage
       modify (\clis -> clis {clisMessage = ""})
-      newRIDsLine <- liftIO $ getLineWithString "Введите номер маршрутов через запятую (Например: \"1,2,3\" или оставить пустым для всех маршрутов): "
+      newRIDsLine <- liftIO $ getLineWithString "Введите номера маршрутов через запятую (Например: \"1,2,3\" или оставить пустым для всех маршрутов): "
       newRIDs <- mapM (\rIDMaybe -> case readMaybe rIDMaybe of
                           Just rID -> case find (\route -> route.routeID == rID) cliState.clisRoutes of
                                         Just _ -> return rID
