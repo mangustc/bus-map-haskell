@@ -75,6 +75,7 @@ main = do
 
   -- let edges = edgesFromRoutesStops routes stops
   -- let graph = edgesToGraph edges
+  -- let paths = findEveryKPath graph 5 99 133
   -- -- mapM_ print (findKPathsByLength graph 5 99 302)
-  -- mapM_ print (findKPathsByLength graph 5 14 1)
+  -- mapM_ print (getKPathsByTransfers paths)
   -- -- mapM_ print (findKPathsByLength graph 5 99 133)

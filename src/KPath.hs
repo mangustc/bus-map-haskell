@@ -88,7 +88,6 @@ findEveryKPath graph pathAmount startSID endSID = filter (\qe ->
                                                     zerosPercentage = (fromIntegral zerosAmount / fromIntegral routesAmount)
                                                 in not (averageLengthCost < qe.qeLengthCost && (zerosPercentage > maxZerosPercentage))) everyPath
                             else everyPath
-    -- maybeWithoutZeroPaths = everyPath
 
 getKPathsByLength :: [QueueElement] -> [Path]
 getKPathsByLength qePaths = map queueElementToPath sortedPaths
@@ -131,11 +130,9 @@ findKPaths insertFunction graph pathAmountTemp startSID endSID = map
               currentSIDRemainingAmount = Map.findWithDefault 0 currentEntry.qeCurrentStopID sIDsRemainingAmount
           in if currentEntry.qeCurrentStopID == endSID
                   then
-                    let isPathPointless = any (\path -> currentEntry `isPointlessAgainst` path) currentPaths
-                        plus = if isPathPointless then 0 else 1
-                        filteredPaths = if isPathPointless then currentPaths else currentEntry : filter (\path -> not (path `isPointlessAgainst` currentEntry)) currentPaths
-                        newSIDsRemainingAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDRemainingAmount - plus) sIDsRemainingAmount
-                    in findKPaths' queue' newSIDsRemainingAmount filteredPaths
+                    let newCurrentPaths = currentEntry : filter (\path -> not (path `isPointlessAgainst` currentEntry)) currentPaths
+                        newSIDsRemainingAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDRemainingAmount - 1) sIDsRemainingAmount
+                    in findKPaths' queue' newSIDsRemainingAmount newCurrentPaths
                   else
                     let nextSIDsWithRIDs = Map.findWithDefault [] currentEntry.qeCurrentStopID graph
                         headRID = head currentEntry.qePathRouteIDs
@@ -157,6 +154,6 @@ findKPaths insertFunction graph pathAmountTemp startSID endSID = map
                             not (any (\path -> head path.qePathStopIDs == head qe.qePathStopIDs && qe `isPointlessAgainst` path) queue')
                           ]
                         newQueue = foldr insertFunction queue' newEntries
-                        newSIDsVisitedAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDRemainingAmount - 1) sIDsRemainingAmount
-                    in findKPaths' newQueue newSIDsVisitedAmount currentPaths
+                        newSIDsRemainingAmount = Map.insert currentEntry.qeCurrentStopID (currentSIDRemainingAmount - 1) sIDsRemainingAmount
+                    in findKPaths' newQueue newSIDsRemainingAmount currentPaths
 

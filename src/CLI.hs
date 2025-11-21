@@ -88,10 +88,12 @@ pathToConciseString stops routes path = segsToString path.pathConciseSegments
     getRouteLine seg@(rID, _, _) = if seg `elem` path.pathFullSegments
                            then "--" ++ (getRouteByRouteID routes rID).routeName ++ "-->"
                            else "-...-" ++ (getRouteByRouteID routes rID).routeName ++ "-...->"
+    segToString :: PathSegment -> String
+    segToString hseg@(_, sID, sIDNext) = (getStopByStopID stops sID).stopName ++ " " ++ getRouteLine hseg ++ " " ++ (getStopByStopID stops sIDNext).stopName
     segsToString :: [PathSegment] -> String
     segsToString [] = []
-    segsToString [hseg@(_, sID, sIDNext)] = (getStopByStopID stops sID).stopName ++ " " ++ getRouteLine hseg ++ " " ++ (getStopByStopID stops sIDNext).stopName
-    segsToString (hseg@(_, sID, _):tseg) = (getStopByStopID stops sID).stopName ++ " " ++ getRouteLine hseg ++ " " ++ segsToString tseg
+    segsToString [hseg@(_, sID, sIDNext)] = segToString hseg
+    segsToString (hseg@(_, sID, _):tseg) = segToString hseg ++ "\n\t" ++ segsToString tseg
 
 getEveryQE :: Graph -> StopID -> StopID -> CLISortType -> [RouteID] -> [QueueElement]
 getEveryQE graph startSID endSID sortType selectedRIDs = findEveryKPath filteredGraph pathAmount startSID endSID
@@ -214,7 +216,7 @@ mainLoop = do
           show position ++ ". " ++
           show path.pathLength ++ " " ++ getStopWord path.pathLength ++ ", " ++
           show path.pathTransferAmount ++ " " ++ getTransferWord path.pathTransferAmount ++ ", " ++
-          show path.pathWalkingAmount ++ " " ++ "пешком" ++ ". " ++
+          show path.pathWalkingAmount ++ " " ++ "пешком" ++ ".\n\t" ++
           pathToConciseString cliState.clisStops (Route {routeID = 0, routeName = "пешком", routePath = []} : cliState.clisRoutes) path ++
           (if path.pathTransferAmount == 0 then "" else ".")
         ) (zip [1,2..] (case sortBy of
