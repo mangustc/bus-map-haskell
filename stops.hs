@@ -65,7 +65,7 @@ Stop { stopID = 52, stopName = "Горбольница №3 (Северная)" 
 -- Елизаровых (на восток)
 Stop { stopID = 53, stopName = "Транспортное кольцо (Южная, Елизаровых)" }
 Stop { stopID = 54, stopName = "Артёма (Южная)" }
-Stop { stopID = 55, stopName = "Тосмк-1 (Южная, Елизаровых)" }
+Stop { stopID = 55, stopName = "Томск-1 (Южная, Елизаровых)" }
 Stop { stopID = 56, stopName = "Детский реабилитационный центр (Южная)" }
 Stop { stopID = 57, stopName = "Горэлектросети (Южная)" }
 Stop { stopID = 58, stopName = "Завод ДСК (Восточная)" }
@@ -75,7 +75,7 @@ Stop { stopID = 60, stopName = "Автоцентр (Западная)" }
 Stop { stopID = 61, stopName = "Завод ДСК (Западная)" }
 Stop { stopID = 62, stopName = "Горэлектросети (Северная)" }
 Stop { stopID = 63, stopName = "Детский реабилитационный центр (Северная)" }
-Stop { stopID = 64, stopName = "Тосмк-1 (Северная, Елизаровых)" }
+Stop { stopID = 64, stopName = "Томск-1 (Северная, Елизаровых)" }
 Stop { stopID = 65, stopName = "Магазин Юбилейный" }
 Stop { stopID = 66, stopName = "Артёма (Северная)" }
 Stop { stopID = 67, stopName = "Транспортное кольцо (Северная, Елизаровых)" }
