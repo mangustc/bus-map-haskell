@@ -86,7 +86,7 @@ findEveryKPath graph pathAmount startSID endSID = filter (\qe ->
                             then filter (\qe -> let zerosAmount = length (filter (== 0) qe.qePathRouteIDs)
                                                     routesAmount = length qe.qePathRouteIDs
                                                     zerosPercentage = (fromIntegral zerosAmount / fromIntegral routesAmount)
-                                                in not (averageLengthCost < qe.qeLengthCost && (zerosPercentage > maxZerosPercentage))) everyPath
+                                                in not (averageLengthCost < qe.qeLengthCost && zerosPercentage > maxZerosPercentage)) everyPath
                             else everyPath
 
 getKPathsByLength :: [QueueElement] -> [Path]
